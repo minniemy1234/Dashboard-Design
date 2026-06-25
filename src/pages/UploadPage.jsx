@@ -15,26 +15,38 @@ import {
   DeleteOutlined,
   FileExcelOutlined,
   CheckCircleOutlined,
+  BarChartOutlined,
 } from "@ant-design/icons";
 
 const { Header, Content } = Layout;
 
 function UploadPage() {
+  // สำหรับไฟล์ข้อมูลทั่วไป (TCAS, นิสิตคงอยู่ ฯลฯ)
   const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [sheetNames, setSheetNames] = useState([]);
   const [tempResult, setTempResult] = useState(null);
+
+  // 🔥 สำหรับไฟล์กราฟโดยเฉพาะ
+  const [graphFileName, setGraphFileName] = useState("");
+  const [selectedGraphFile, setSelectedGraphFile] = useState(null);
+  const [tempGraphResult, setTempGraphResult] = useState(null);
+
   const [existingCategories, setExistingCategories] = useState([]);
 
-  // ดึงข้อมูลที่เคยค้างในระบบขึ้นมาแสดงผลทันที
   useEffect(() => {
+    refreshExistingCategories();
+  }, []);
+
+  const refreshExistingCategories = () => {
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
       const data = JSON.parse(stored);
       setExistingCategories(Object.keys(data));
     }
-  }, []);
+  };
 
+  // จัดการไฟล์ข้อมูลทั่วไป
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -46,7 +58,6 @@ function UploadPage() {
     reader.onload = (e) => {
       const data = e.target.result;
       const workbook = XLSX.read(data, { type: "binary" });
-
       const result = {};
       setSheetNames(workbook.SheetNames);
 
@@ -60,50 +71,83 @@ function UploadPage() {
         delete result["Sheet1"];
         setSheetNames(["จำนวนนิสิตคงอยู่"]);
       }
-
       setTempResult(result);
     };
     reader.readAsBinaryString(file);
   };
 
-  const handleUpload = () => {
-    if (!selectedFile || !tempResult) {
-      message.warning("กรุณาเลือกไฟล์ก่อนทำการอัปโหลด");
-      return;
-    }
+  // 🔥 จัดการไฟล์สำหรับกราฟสาขาโดยเฉพาะ
+  const handleGraphFileChange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
+    setSelectedGraphFile(file);
+    setGraphFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = e.target.result;
+      const workbook = XLSX.read(data, { type: "binary" });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonOutput = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+      // บังคับเซ็ตให้อยู่ในหมวด "กราาฟสาขา(in)" เพื่อเอาไปลิ้งค์หน้าแรก
+      setTempGraphResult({
+        "กราาฟสาขา(in)": jsonOutput
+      });
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // บันทึกข้อมูลทั่วไป
+  const handleUpload = () => {
+    if (!selectedFile || !tempResult) return;
     Modal.confirm({
-      title: "ยืนยันการนำเข้าข้อมูล?",
-      content: "ต้องการเพิ่มข้อมูลจากไฟล์นี้เข้าสู่ระบบใช่หรือไม่? หากมีข้อมูลในกลุ่มเดิมค้างอยู่ระบบจะทำการอัปเดตแทนที่ทันที",
-      okText: "ยืนยันนำเข้า",
+      title: "ยืนยันการนำเข้าข้อมูลทั่วไป?",
+      content: "ต้องการเพิ่มข้อมูลจากไฟล์นี้เข้าสู่ระบบใช่หรือไม่?",
+      okText: "ยืนยัน",
       cancelText: "ยกเลิก",
       onOk() {
-        const existingDataStr = localStorage.getItem("dashboardData");
-        let finalData = existingDataStr ? JSON.parse(existingDataStr) : {};
-
-        finalData = {
-          ...finalData,
-          ...tempResult
-        };
-
-        setDashboardData(finalData);
-        localStorage.setItem("dashboardData", JSON.stringify(finalData));
-        setExistingCategories(Object.keys(finalData));
-
+        saveToLocalStorage(tempResult);
         setSelectedFile(null);
         setFileName("");
         setTempResult(null);
-        setSheetNames([]);
-
-        message.success("นำเข้าข้อมูลและเชื่อมโยงระบบ Dashboard สำเร็จ");
-      },
+        message.success("นำเข้าข้อมูลทั่วไปสำเร็จ");
+      }
     });
+  };
+
+  // 🔥 บันทึกไฟล์กราฟแยกต่างหาก
+  const handleGraphUpload = () => {
+    if (!selectedGraphFile || !tempGraphResult) return;
+    Modal.confirm({
+      title: "ยืนยันการนำเข้าไฟล์กราฟสาขา?",
+      content: "ต้องการอัปเดตข้อมูล Top 5 สาขาด้วยไฟล์นี้ใช่หรือไม่?",
+      okText: "ยืนยันนำเข้ากราฟ",
+      cancelText: "ยกเลิก",
+      onOk() {
+        saveToLocalStorage(tempGraphResult);
+        setSelectedGraphFile(null);
+        setGraphFileName("");
+        setTempGraphResult(null);
+        message.success("อัปเดตข้อมูลกราฟสาขาเรียบร้อยแล้ว");
+      }
+    });
+  };
+
+  const saveToLocalStorage = (newData) => {
+    const stored = localStorage.getItem("dashboardData");
+    let finalData = stored ? JSON.parse(stored) : {};
+    finalData = { ...finalData, ...newData };
+    setDashboardData(finalData);
+    localStorage.setItem("dashboardData", JSON.stringify(finalData));
+    refreshExistingCategories();
   };
 
   const handleDeleteCategory = (categoryName) => {
     Modal.confirm({
       title: "ต้องการลบข้อมูลกลุ่มนี้ใช่หรือไม่?",
-      content: `ข้อมูลในหมวด "${categoryName}" ทั้งหมดจะถูกลบออกและจะไม่แสดงผลบนหน้าแรกอีกต่อไป`,
+      content: `ข้อมูลในหมวด "${categoryName}" จะถูกลบออกจากระบบถาวร`,
       okText: "ลบข้อมูล",
       cancelText: "ยกเลิก",
       okButtonProps: { danger: true },
@@ -112,10 +156,9 @@ function UploadPage() {
         if (stored) {
           const data = JSON.parse(stored);
           delete data[categoryName];
-
           setDashboardData(data);
           localStorage.setItem("dashboardData", JSON.stringify(data));
-          setExistingCategories(Object.keys(data));
+          refreshExistingCategories();
           message.success(`ลบข้อมูลหมวด "${categoryName}" เรียบร้อยแล้ว`);
         }
       },
@@ -126,136 +169,78 @@ function UploadPage() {
     <Layout style={{ minHeight: "100vh" }}>
       <Sidebar />
       <Layout>
-        {/* 🔥 ปรับปรุงส่วน Header ให้ชิดกระชับเหมือนหน้าแรก บรรทัดไม่ห่างกันแล้ว */}
-        <Header
-          style={{
-            background: "white",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "20px 20px",
-            height: "auto",
-            lineHeight: "normal",
-          }}
-        >
+        <Header style={{ background: "white", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 20px", height: "auto", lineHeight: "normal" }}>
           <div style={{ paddingTop: 10 }}>
             <h2 style={{ margin: 0 }}>Data Management</h2>
-            <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>จัดการข้อมูล อัปโหลด และลบไฟล์ค้างในระบบ</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div>Admin</div>
-            <div style={{ color: "#888", fontSize: 12 }}>{new Date().toLocaleDateString()}</div>
+            <div style={{ color: "#888", fontSize: 13, marginTop: 2 }}>จัดการข้อมูล อัปโหลด และลบไฟล์แยกตามประเภทคลังข้อมูล</div>
           </div>
         </Header>
 
-        {/* ปรับลด Padding ของ Content ลงเล็กน้อยให้สมดุล */}
-        <Content style={{ padding: "16px 32px 32px 32px", marginTop: 0, background: "#f5f5f5" }}>
+        <Content style={{ padding: "16px 32px 32px 32px", background: "#f5f5f5" }}>
           <div style={{ display: "grid", gridTemplateColumns: "55% 45%", gap: 20, alignItems: "start" }}>
             
-            {/* ฝั่งซ้าย: กล่องอัปโหลดไฟล์ */}
-            <Card 
-              title="1. เลือกและนำเข้าไฟล์ใหม่" 
-              style={{ borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}
-              bodyStyle={{ padding: "20px" }}
-            >
-              <p style={{ color: "#666", margin: "0 0 16px 0", fontSize: 14, lineHeight: "1.4" }}>
-                คุณสามารถเลือกไฟล์ Excel (.xlsx, .xls) หรือไฟล์ CSV เพื่อเพิ่มหรืออัปเดตระบบวิเคราะห์ข้อมูลได้
-              </p>
+            {/* ฝั่งซ้าย: รวมกล่องอัปโหลดแบบแยกประเภท */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               
-              <div 
-                style={{ 
-                  border: "2px dashed #3b82f6", 
-                  padding: "24px 16px", 
-                  borderRadius: 12, 
-                  textAlign: "center",
-                  background: "#f0f7ff",
-                  marginBottom: 16,
-                }}
-              >
-                <UploadOutlined style={{ fontSize: 28, color: "#3b82f6", marginBottom: 8 }} />
-                <div>
-                  <label htmlFor="file-upload" style={{ cursor: "pointer", color: "#3b82f6", fontWeight: 600, fontSize: 14 }}>
-                    คลิกเพื่อเลือกไฟล์จากคอมพิวเตอร์
-                  </label>
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept=".xlsx,.xls,.csv"
-                    onChange={handleFileChange}
-                    style={{ display: "none" }}
-                  />
-                </div>
-                <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>รองรับไฟล์ขนาดไม่เกิน 20MB</div>
-              </div>
-
-              {fileName && (
-                <div style={{ background: "#f9fafb", padding: "12px 16px", borderRadius: 10, border: "1px solid #e5e7eb", marginBottom: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <FileExcelOutlined style={{ fontSize: 20, color: "#10b981" }} />
-                    <div style={{ flexGrow: 1, lineHeight: "1.3" }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{fileName}</div>
-                      <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>ตรวจพบกลุ่มข้อมูล: {sheetNames.join(", ")}</div>
-                    </div>
+              {/* ส่วนที่ 1: อัปโหลดข้อมูลทั่วไป */}
+              <Card title="1. อัปโหลดข้อมูลมหาวิทยาลัยทั่วไป (TCAS / นิสิตลงทะเบียน / คงอยู่)" style={{ borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }} bodyStyle={{ padding: 20 }}>
+                <div style={{ border: "2px dashed #d9d9d9", padding: "20px 16px", borderRadius: 12, textAlign: "center", background: "#fafafa", marginBottom: 16 }}>
+                  <UploadOutlined style={{ fontSize: 24, color: "#888", marginBottom: 8 }} />
+                  <div>
+                    <label htmlFor="file-upload" style={{ cursor: "pointer", color: "#3b82f6", fontWeight: 600 }}>คลิกเลือกไฟล์ข้อมูลหลัก</label>
+                    <input id="file-upload" type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: "none" }} />
                   </div>
                 </div>
-              )}
+                {fileName && (
+                  <div style={{ background: "#f9fafb", padding: 12, borderRadius: 10, border: "1px solid #e5e7eb", marginBottom: 16, fontSize: 13 }}>
+                    <FileExcelOutlined style={{ color: "#10b981", marginRight: 6 }} /> <b>ไฟล์ที่เลือก:</b> {fileName}
+                  </div>
+                )}
+                <Button type="primary" icon={<CheckCircleOutlined />} disabled={!selectedFile} onClick={handleUpload} style={{ width: "100%", height: 40, borderRadius: 8 }}>
+                  นำเข้าข้อมูลทั่วไป
+                </Button>
+              </Card>
 
-              <Button 
-                type="primary" 
-                size="large" 
-                icon={<CheckCircleOutlined />} 
-                disabled={!selectedFile}
-                onClick={handleUpload}
-                style={{ width: "100%", height: 44, borderRadius: 10, fontSize: 15 }}
-              >
-                ยืนยันนำเข้าข้อมูลเข้า Dashboard
-              </Button>
-            </Card>
+              {/* 🔥 ส่วนที่ 2: ช่องอัปโหลดแยกสำหรับไฟล์กราฟโดยเฉพาะ */}
+              <Card title="2. ช่องเฉพาะอัปโหลดไฟล์กราฟสาขา (กราาฟสาขา(in).csv)" style={{ borderRadius: 16, border: "1px solid #bae7ff", boxShadow: "0 2px 8px rgba(59,130,246,0.05)" }} bodyStyle={{ padding: 20 }}>
+                <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>สำหรับใส่ไฟล์สถิติกราฟแท่งเพื่อแสดงสาขาทั้งหมด</p>
+                <div style={{ border: "2px dashed #3b82f6", padding: "24px 16px", borderRadius: 12, textAlign: "center", background: "#f0f7ff", marginBottom: 16 }}>
+                  <BarChartOutlined style={{ fontSize: 28, color: "#3b82f6", marginBottom: 8 }} />
+                  <div>
+                    <label htmlFor="graph-upload" style={{ cursor: "pointer", color: "#3b82f6", fontWeight: 600 }}>
+                      คลิกเลือกไฟล์สถิติกราฟสาขา
+                    </label>
+                    <input id="graph-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleGraphFileChange} style={{ display: "none" }} />
+                  </div>
+                </div>
+                {graphFileName && (
+                  <div style={{ background: "#eff6ff", padding: 12, borderRadius: 10, border: "1px solid #bfdbfe", marginBottom: 16, fontSize: 13 }}>
+                    <BarChartOutlined style={{ color: "#3b82f6", marginRight: 6 }} /> <b>ไฟล์กราฟที่เลือก:</b> {graphFileName} (จะถูกนำเข้าสู่ระบบกราฟทันที)
+                  </div>
+                )}
+                <Button type="primary" danger style={{ backgroundColor: "#3b82f6", borderColor: "#3b82f6", width: "100%", height: 40, borderRadius: 8 }} icon={<CheckCircleOutlined />} disabled={!selectedGraphFile} onClick={handleGraphUpload}>
+                  ยืนยันอัปเดตไฟล์กราฟแยกเฉพาะ
+                </Button>
+              </Card>
+            </div>
 
-            {/* ฝั่งขวา: กล่องแสดงข้อมูลค้างในระบบและปุ่มลบออก */}
-            <Card 
-              title="2. ข้อมูลปัจจุบันที่มีอยู่ในคลังระบบ" 
-              style={{ borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}
-              bodyStyle={{ padding: "20px" }}
-            >
-              <p style={{ color: "#666", margin: "0 0 16px 0", fontSize: 14, lineHeight: "1.4" }}>
-                รายการข้อมูลกลุ่มต่าง ๆ ที่ค้างอยู่ในฐานข้อมูลตอนนี้ คุณสามารถสั่งลบเพื่อรีเซ็ตหน้าแสดงผลได้ทันที
-              </p>
-              
+            {/* ฝั่งขวา: แสดงรายการไฟล์ค้างในคลังและลบออก */}
+            <Card title="คลังข้อมูลปัจจุบันที่มีอยู่ในระบบ" style={{ borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }} bodyStyle={{ padding: 20 }}>
+              <p style={{ color: "#666", fontSize: 13, marginBottom: 16 }}>สามารถกดลบข้อมูลแต่ละหมวดออกจากระบบแยกกันตรงนี้ได้ทันที</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {existingCategories.map((category) => (
-                  <div 
-                    key={category}
-                    style={{ 
-                      display: "flex", 
-                      justifyContent: "space-between", 
-                      alignItems: "center", 
-                      padding: "10px 14px", 
-                      background: "#fff", 
-                      border: "1px solid #e5e7eb", 
-                      borderRadius: 10,
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.01)"
-                    }}
-                  >
+                  <div key={category} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: category === "กราาฟสาขา(in)" ? "#f0f7ff" : "#fff", border: "1px solid #e5e7eb", borderRadius: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6" }}></div>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: category === "" ? "#3b82f6" : "#52c41a" }}></div>
                       <span style={{ fontWeight: 500, fontSize: 14 }}>{category}</span>
+                      {category === "" && <span style={{ fontSize: 11, color: "#3b82f6", background: "#e6f7ff", padding: "2px 6px", borderRadius: 4 }}>ข้อมูลกราฟ</span>}
                     </div>
-                    <Button 
-                      type="text" 
-                      danger 
-                      icon={<DeleteOutlined />} 
-                      onClick={() => handleDeleteCategory(category)}
-                      style={{ borderRadius: 6, height: 32, padding: "0 8px" }}
-                    >
-                      ลบข้อมูลออก
+                    <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteCategory(category)} style={{ borderRadius: 6, height: 32, padding: "0 8px" }}>
+                      ลบออก
                     </Button>
                   </div>
                 ))}
-
-                {existingCategories.length === 0 && (
-                  <Empty description="ไม่มีข้อมูลค้างอยู่ในระบบ" style={{ padding: "20px 0" }} />
-                )}
+                {existingCategories.length === 0 && <Empty description="ไม่มีข้อมูลค้างอยู่ในคลังระบบ" style={{ padding: "20px 0" }} />}
               </div>
             </Card>
 

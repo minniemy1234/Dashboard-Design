@@ -1,8 +1,5 @@
 import StatCard from "../components/StatCard";
-import {
-  Layout,
-  Table,
-} from "antd";
+import { Layout, Table, Button } from "antd";
 import Sidebar from "../components/Sidebar";
 import { useMemo, useState, useEffect } from "react";
 import {
@@ -22,7 +19,9 @@ import {
 import {
   TeamOutlined,
   UserOutlined,
-  TrophyOutlined
+  TrophyOutlined,
+  SearchOutlined,
+  CalendarOutlined
 } from "@ant-design/icons";
 
 const { Header, Content } = Layout;
@@ -32,9 +31,20 @@ function Dashboard() {
   const [selectedMajor, setSelectedMajor] = useState("");
   const [selectedTerm, setSelectedTerm] = useState(""); 
   const [searchText, setSearchText] = useState("");
+
+  const [appliedFilters, setAppliedFilters] = useState({
+    year: "",
+    major: "",
+    term: "",
+    search: ""
+  });
+
+  // 🔥 State ใหม่สำหรับ ฟิลเตอร์ปีการศึกษาแยกเฉพาะของกล่องกราฟสาขา
+  const [graphSelectedYear, setGraphSelectedYear] = useState("");
+
   const [dashboardData, setDashboardData] = useState(null);
 
-  // ดึงข้อมูลใหม่จาก localStorage ทุกครั้งที่เปิดหน้าหรือกลับมาหน้านี้
+  // ดึงข้อมูลจากฐานข้อมูลจำลอง (localStorage)
   useEffect(() => {
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
@@ -44,67 +54,117 @@ function Dashboard() {
 
   const tcas = dashboardData?.["TCAS64-67"] || [];
   const retain = dashboardData?.["จำนวนนิสิตคงอยู่"] || [];
+  
+  // ดึงไฟล์กราฟสาขา(in) จากช่องอัปโหลดแยก
+  const branchChartFile = dashboardData?.["กราาฟสาขา(in)"] || [];
 
-  // ดึงรายการปีการศึกษาจากทั้งข้อมูล TCAS และข้อมูลนิสิตคงอยู่ เพื่อให้ครอบคลุมทุกไฟล์
+  // รวบรวมปีทั้งหมดเพื่อนำไปใส่ฟิลเตอร์ดรอปดาวน์หลัก
   const years = useMemo(() => {
     const tcasYears = tcas.map((item) => item["ปีการศึกษา"] || item["ปี"]);
     const retainYears = retain.map((item) => item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"]);
     return [...new Set([...tcasYears, ...retainYears])].filter(Boolean).sort();
   }, [tcas, retain]);
 
-  // ดึงรายชื่อสาขาจากทั้งไฟล์ TCAS และไฟล์นิสิตคงอยู่รวมกัน
+  // รวบรวมปีการศึกษาทั้งหมดที่อยู่ในไฟล์กราฟสาขา เพื่อเอาไปใช้ในฟิลเตอร์แยกของกราฟ
+  const graphYears = useMemo(() => {
+    const yearsFromFile = branchChartFile.map((item) => item["ปีการศึกษา"] || item["ปี"] || item["ปีที่สำรวจ"]);
+    const cleanYears = [...new Set(yearsFromFile)].filter(Boolean).sort();
+    // ถ้าในไฟล์ไม่มีปี ให้ดึงปีจากข้อมูลหลักมาเป็นตัวเลือกสำรอง
+    return cleanYears.length > 0 ? cleanYears : years;
+  }, [branchChartFile, years]);
+
+  // รวบรวมสาขาทั้งหมด
   const majors = useMemo(() => {
     const tcasMajors = tcas.map((item) => item["ชื่อสาขา"]);
     const retainMajors = retain.map((item) => item["ชื่อสาขา"]);
-    return [...new Set([...tcasMajors, ...retainMajors])].filter(Boolean).sort();
-  }, [tcas, retain]);
+    const branchMajors = branchChartFile.map((item) => item["ชื่อสาขา"]);
+    return [...new Set([...tcasMajors, ...retainMajors, ...branchMajors])].filter(Boolean).sort();
+  }, [tcas, retain, branchChartFile]);
 
-  // ดึงรายการภาคการศึกษาจากทั้งข้อมูล TCAS และข้อมูลนิสิตคงอยู่
   const terms = useMemo(() => {
     const tcasTerms = tcas.map((item) => item["ภาคการศึกษา"]);
     const retainTerms = retain.map((item) => item["ภาคเรียน"]);
     return [...new Set([...tcasTerms, ...retainTerms])].filter(Boolean);
   }, [tcas, retain]);
 
-  const filteredTCAS = tcas.filter(
-    (item) => {
+  const handleApplyFilters = () => {
+    setAppliedFilters({
+      year: selectedYear,
+      major: selectedMajor,
+      term: selectedTerm,
+      search: searchText
+    });
+  };
+
+  const filteredTCAS = useMemo(() => {
+    return tcas.filter((item) => {
       const searchMatch =
-        !searchText ||
-        JSON.stringify(item)
-          .toLowerCase()
-          .includes(searchText.toLowerCase());
-
-      const yearMatch =
-        !selectedYear ||
-        String(item["ปีการศึกษา"] || item["ปี"]) === String(selectedYear);
-
-      const termMatch =
-        !selectedTerm ||
-        String(item["ภาคการศึกษา"]) === String(selectedTerm);
-
-      const majorMatch =
-        !selectedMajor ||
-        item["ชื่อสาขา"] === selectedMajor;
+        !appliedFilters.search ||
+        JSON.stringify(item).toLowerCase().includes(appliedFilters.search.toLowerCase());
+      const yearMatch = !appliedFilters.year || String(item["ปีการศึกษา"] || item["ปี"]) === String(appliedFilters.year);
+      const termMatch = !appliedFilters.term || String(item["ภาคการศึกษา"]) === String(appliedFilters.term);
+      const majorMatch = !appliedFilters.major || item["ชื่อสาขา"] === appliedFilters.major;
 
       return searchMatch && yearMatch && termMatch && majorMatch;
-    }
-  );
+    });
+  }, [tcas, appliedFilters]);
 
   const groupedData = {};
   filteredTCAS.forEach((item) => {
     const major = item["ชื่อสาขา"] || "-";
     if (!groupedData[major]) {
-      groupedData[major] = {
-        name: major,
-        applicants: 0,
-        admitted: 0,
-      };
+      groupedData[major] = { name: major, admitted: 0 };
     }
-    groupedData[major].applicants += Number(item["จำนวนผู้สมัคร"] || 0);
     groupedData[major].admitted += Number(item["จำนวนรับ"] || 0);
   });
-
   const chartData = Object.values(groupedData);
+
+  // 🔥 ปรับลอจิกกราฟ: ให้ทำงานสัมพันธ์กับ ฟิลเตอร์ปีเฉพาะทางขวา (graphSelectedYear)
+  const allMajorsData = useMemo(() => {
+    if (branchChartFile && branchChartFile.length > 0) {
+      // กรองไฟล์กราฟแยกตามปี (ขวามือ) และตามสาขา (ถ้าฟิลเตอร์หลักด้านบนเลือกสาขาไว้)
+      const filteredBranch = branchChartFile.filter(item => {
+        const itemYear = String(item["ปีการศึกษา"] || item["ปี"] || item["ปีที่สำรวจ"] || "");
+        const yearMatch = !graphSelectedYear || itemYear === String(graphSelectedYear);
+        const majorMatch = !appliedFilters.major || item["ชื่อสาขา"] === appliedFilters.major;
+        return yearMatch && majorMatch;
+      });
+
+      // ยุบรวมยอดข้อมูลหากไฟล์มีข้อมูลสาขาซ้ำกันในคนละเทอม/คนละแถว
+      const sumMap = {};
+      filteredBranch.forEach(item => {
+        const name = item["ชื่อสาขา"] || "-";
+        const amt = Number(item["Sum of จำนวน"] || item["จำนวน"] || 0);
+        if (!sumMap[name]) sumMap[name] = 0;
+        sumMap[name] += amt;
+      });
+
+      return Object.keys(sumMap)
+        .map(name => ({ name, count: sumMap[name] }))
+        .sort((a, b) => b.count - a.count); // เรียงลำดับจากมากไปน้อย
+    } else {
+      // กรณีไม่มีไฟล์แยก ให้ดึงจากข้อมูล TCAS มาใช้งานแทน (สัมพันธ์กับปีขวามือเช่นกัน)
+      const fallbackData = {};
+      tcas.forEach(item => {
+        const itemYear = String(item["ปีการศึกษา"] || item["ปี"] || "");
+        const yearMatch = !graphSelectedYear || itemYear === String(graphSelectedYear);
+        const majorMatch = !appliedFilters.major || item["ชื่อสาขา"] === appliedFilters.major;
+        
+        if (yearMatch && majorMatch) {
+          const major = item["ชื่อสาขา"] || "-";
+          if (!fallbackData[major]) fallbackData[major] = { name: major, count: 0 };
+          fallbackData[major].count += Number(item["จำนวนผู้สมัคร"] || 0);
+        }
+      });
+      return Object.values(fallbackData).sort((a, b) => b.count - a.count);
+    }
+  }, [branchChartFile, tcas, graphSelectedYear, appliedFilters.major]);
+
+  // คำนวณความสูงตามจำนวนสาขาที่แสดงผลจริง
+  const dynamicChartHeight = useMemo(() => {
+    const rowCount = allMajorsData.length;
+    return Math.max(320, rowCount * 38);
+  }, [allMajorsData]);
 
   let admitted = 0;
   let enrolled = 0;
@@ -119,35 +179,22 @@ function Dashboard() {
     const employment = dashboardData["ภาวะการมีงานทำ"] || [];
 
     const filteredRegister = register.filter(
-      (item) =>
-        !selectedYear ||
-        String(item["ปีการศึกษา"]) === String(selectedYear)
+      (item) => !appliedFilters.year || String(item["ปีการศึกษา"]) === String(appliedFilters.year)
     );
 
     totalStudents = filteredRegister.reduce(
-      (sum, item) =>
-        sum +
-        Number(item["ชั้นปีที่ 1"] || 0) +
-        Number(item["ชั้นปีที่ 2"] || 0) +
-        Number(item["ชั้นปีที่ 3"] || 0) +
-        Number(item["ชั้นปีที่ 4"] || 0) +
-        Number(item["ชั้นปีที่ 5"] || 0) +
-        Number(item["ชั้นปีที่ 6"] || 0),
-      0
+      (sum, item) => sum +
+        Number(item["ชั้นปีที่ 1"] || 0) + Number(item["ชั้นปีที่ 2"] || 0) +
+        Number(item["ชั้นปีที่ 3"] || 0) + Number(item["ชั้นปีที่ 4"] || 0) +
+        Number(item["ชั้นปีที่ 5"] || 0) + Number(item["ชั้นปีที่ 6"] || 0), 0
     );
 
-    graduates = employment.reduce(
-      (sum, item) => sum + Number(item["ผู้สำเร็จการศึกษา"] || 0),
-      0
-    );
+    graduates = employment.reduce((sum, item) => sum + Number(item["ผู้สำเร็จการศึกษา"] || 0), 0);
 
-    // คำนวณข้อมูล "นิสิตคงอยู่" จากไฟล์โครงสร้างชุดใหม่ (.csv)
     retained = retain.reduce((sum, item) => {
-      const currentYear = selectedYear || (years.length > 0 ? years[years.length - 1] : "");
-      
-      const yearMatch = String(item["ปีที่สำรวจ"]) === String(currentYear);
-      const termMatch = !selectedTerm || String(item["ภาคเรียน"]) === String(selectedTerm);
-      const majorMatch = !selectedMajor || String(item["ชื่อสาขา"]) === String(selectedMajor);
+      const yearMatch = !appliedFilters.year || String(item["ปีที่สำรวจ"]) === String(appliedFilters.year);
+      const termMatch = !appliedFilters.term || String(item["ภาคเรียน"]) === String(appliedFilters.term);
+      const majorMatch = !appliedFilters.major || String(item["ชื่อสาขา"]) === String(appliedFilters.major);
 
       if (yearMatch && termMatch && majorMatch) {
         return sum + Number(item["จำนวน"] || 0);
@@ -173,11 +220,6 @@ function Dashboard() {
     { name: "ผู้สมัคร", value: enrolled },
   ];
 
-  
-  const topMajors = [...chartData]
-    .sort((a, b) => b.applicants - a.applicants)
-    .slice(0, 5);
-
   const admissionRate = enrolled > 0 ? ((admitted / enrolled) * 100).toFixed(2) : 0;
   const retentionRate = totalStudents > 0 ? ((retained / totalStudents) * 100).toFixed(2) : 0;
   const graduationRate = totalStudents > 0 ? ((graduates / totalStudents) * 100).toFixed(2) : 0;
@@ -186,17 +228,7 @@ function Dashboard() {
     <Layout style={{ minHeight: "100vh" }}>
       <Sidebar />
       <Layout>
-        <Header
-          style={{
-            background: "white",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "20px 20px",
-            height: "auto",
-            lineHeight: "normal",
-          }}
-        >
+        <Header style={{ background: "white", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 20px", height: "auto", lineHeight: "normal" }}>
           <div style={{ paddingTop: 10 }}>
             <h2 style={{ margin: 0 }}>University Dashboard</h2>
             <div style={{ color: "#888", fontSize: 13 }}>ระบบวิเคราะห์ข้อมูลมหาวิทยาลัย</div>
@@ -207,74 +239,48 @@ function Dashboard() {
           </div>
         </Header>
 
-        <Content style={{ padding: "16px 32px 32px 32px", marginTop: 0, background: "#f5f5f5" }}>
-          {/* FILTER */}
-          <div
-            style={{
-              background: "#fff",
-              padding: 24,
-              borderRadius: 20,
-              marginBottom: 24,
-              boxShadow: "0 2px 12px rgba(0,0,0,0.05)",
-            }}
-          >
+        <Content style={{ padding: "16px 32px 32px 32px", background: "#f5f5f5" }}>
+          
+          {/* FILTER ZONE PRINCIPAL */}
+          <div style={{ background: "#fff", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
             <input
               type="text"
               placeholder="ค้นหาภาคการศึกษา สาขา หรือข้อมูล..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 14,
-                borderRadius: 12,
-                border: "1px solid #d9d9d9",
-                marginBottom: 24,
-                fontSize: 16,
-              }}
+              style={{ width: "100%", padding: 14, borderRadius: 12, border: "1px solid #d9d9d9", marginBottom: 20, fontSize: 16 }}
             />
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 20 }}>
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>ปีการศึกษา</div>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9" }}
-                >
-                  <option value="">ทั้งหมด</option>
-                  {years.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
+                <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9" }}>
+                  <option value="">ทั้งหมด (รวมทุกปี)</option>
+                  {years.map((year) => <option key={year} value={year}>{year}</option>)}
                 </select>
               </div>
 
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>ภาคการศึกษา</div>
-                <select
-                  value={selectedTerm}
-                  onChange={(e) => setSelectedTerm(e.target.value)}
-                  style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9" }}
-                >
+                <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9" }}>
                   <option value="">ทั้งหมด</option>
-                  {terms.map((term) => (
-                    <option key={term} value={term}>{term}</option>
-                  ))}
+                  {terms.map((term) => <option key={term} value={term}>{term}</option>)}
                 </select>
               </div>
 
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>สาขา</div>
-                <select
-                  value={selectedMajor}
-                  onChange={(e) => setSelectedMajor(e.target.value)}
-                  style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9" }}
-                >
+                <select value={selectedMajor} onChange={(e) => setSelectedMajor(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9" }}>
                   <option value="">ทั้งหมด</option>
-                  {majors.map((major) => (
-                    <option key={major} value={major}>{major}</option>
-                  ))}
+                  {majors.map((major) => <option key={major} value={major}>{major}</option>)}
                 </select>
               </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} style={{ height: 45, borderRadius: 10, padding: "0 32px", fontSize: 15, fontWeight: 500 }}>
+                ยืนยันและค้นหาข้อมูล
+              </Button>
             </div>
           </div>
 
@@ -283,7 +289,7 @@ function Dashboard() {
             <div style={{ background: "#f5f9ff", borderRadius: 16, padding: 24, height: 170, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <div>
-                  <h3 style={{ color: "#2f7ce9", marginBottom: 12 }}>นิสิตรับเข้า (ปี {selectedYear || "ทั้งหมด"})</h3>
+                  <h3 style={{ color: "#2f7ce9", marginBottom: 12 }}>นิสิตรับเข้า (ปี {appliedFilters.year || "ทั้งหมด"})</h3>
                   <h1 style={{ color: "#2f7ce9", fontSize: 36, fontWeight: 700, margin: 0 }}>{admitted.toLocaleString()}</h1>
                   <p style={{ marginTop: 10 }}>คน</p>
                 </div>
@@ -325,99 +331,68 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* 🔥 ส่วนที่ปรับย้ายใหม่: Top 5 สาขายอดนิยม ถูกย้ายขึ้นมาอยู่ตรงนี้ พร้อมปรับกรอบรองรับกราฟแนวนอน */}
-          <div
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              marginTop: 24,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-            }}
-          >
-            <h2 style={{ marginBottom: 20 }}>สาขาทั้งหมด</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "100%", gap: 24, alignItems: "start" }}>
-              {/* เปลี่ยนเป็นกราฟแท่งแนวนอน (Horizontal Bar Chart) เพื่อความสวยงามและรองรับตัวอักษรยาวๆ */}
-              <div style={{ minHeight: 320 }}>
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={topMajors} layout="vertical" margin={{ left: 50, right: 20 }}>
+          {/* BOX GRAPH & SUMMARY LIST */}
+          <div style={{ background: "white", borderRadius: 16, padding: 24, marginTop: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+            
+            {/* ส่วนหัวกล่องกราฟ: เพิ่มตัวเลือกฟิลเตอร์เปลี่ยนปีทางขวามือแยกอิสระ */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+              <h2 style={{ margin: 0 }}>สถิติจำนวนนิสิตรวมสะสมแยกตามสาขาวิชาทั้งหมด</h2>
+              
+              {/* 🔥 ฟิลเตอร์ตัวใหม่ทางขวามือ ทำงานแยกอิสระเฉพาะกล่องนี้ */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f9fafb", padding: "6px 12px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+                <CalendarOutlined style={{ color: "#3b82f6" }} />
+                <span style={{ fontSize: 13, fontWeight: 500, color: "#4b5563" }}>ปีการศึกษา:</span>
+                <select 
+                  value={graphSelectedYear} 
+                  onChange={(e) => setGraphSelectedYear(e.target.value)} 
+                  style={{ background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#1f2937", cursor: "pointer", outline: "none" }}
+                >
+                  <option value="">ทั้งหมด (สรุปรวมทุกปี)</option>
+                  {graphYears.map((year) => <option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "65% 35%", gap: 24, alignItems: "start" }}>
+              <div style={{ minHeight: dynamicChartHeight }}>
+                <ResponsiveContainer width="100%" height={dynamicChartHeight}>
+                  <BarChart data={allMajorsData} layout="vertical" margin={{ left: 50, right: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                     <XAxis type="number" axisLine={false} tickLine={false} />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={150} style={{ fontSize: 12 }} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "none",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                      }}
-                    />
-                    <Bar dataKey="applicants" name="จำนวนผู้สมัคร" fill="#3b82f6" radius={[0, 8, 8, 0]} barSize={20} />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={150} style={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }} />
+                    <Bar dataKey="count" name="จำนวนนิสิต" fill="#3b82f6" radius={[0, 8, 8, 0]} barSize={16} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* รายการแสดงผล Top 5 แบบข้อความเคียงคู่กับกราฟ */}
-              <div style={{ borderLeft: "1px solid #f0f0f0", paddingLeft: 24 }}>
-                {topMajors.map((item, index) => (
-                  <div
-                    key={item.name}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "14px 0",
-                      borderBottom: index !== topMajors.length - 1 ? "1px solid #f5f5f5" : "none",
-                    }}
-                  >
-                    <span style={{ fontSize: 14, color: "#555" }}>{index + 1}. {item.name}</span>
-                    <strong style={{ color: "#3b82f6" }}>{item.applicants.toLocaleString()} คน</strong>
+              {/* 🔥 แก้ไขจุดนี้: เพิ่ม paddingRight: 16 เพื่อดึงให้ตัวหนังสือ 'คน' ขยับเข้ามา ไม่โดนขอบจอหรือ scrollbar กินอีกต่อไป */}
+              <div style={{ borderLeft: "1px solid #f0f0f0", paddingLeft: 24, paddingRight: 16, maxHeight: dynamicChartHeight, overflowY: "auto" }}>
+                {allMajorsData.map((item, index) => (
+                  <div key={item.name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: index !== allMajorsData.length - 1 ? "1px solid #f5f5f5" : "none" }}>
+                    <span style={{ fontSize: 13, color: "#555", paddingRight: 8 }}>{index + 1}. {item.name}</span>
+                    <strong style={{ color: "#3b82f6", whiteSpace: "nowrap" }}>{item.count.toLocaleString()} คน</strong>
                   </div>
                 ))}
-                {topMajors.length === 0 && (
-                  <div style={{ color: "#888", textAlign: "center", paddingTop: 40 }}>ไม่มีข้อมูลสาขาที่จะแสดงผล</div>
+                {allMajorsData.length === 0 && (
+                  <div style={{ color: "#888", textAlign: "center", paddingTop: 40 }}>ไม่มีข้อมูลแสดงผลในปีนี้</div>
                 )}
               </div>
             </div>
           </div>
 
           {/* สรุปภาพรวมมหาวิทยาลัย */}
-          <div
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              marginTop: 24,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-            }}
-          >
+          <div style={{ background: "white", borderRadius: 16, padding: 24, marginTop: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
             <h2 style={{ marginBottom: 20 }}>สรุปภาพรวมมหาวิทยาลัย</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20 }}>
-              <div>
-                <h4 style={{ color: "#22c55e" }}>อัตราการคงอยู่</h4>
-                <h2>{retentionRate}%</h2>
-              </div>
-              <div>
-                <h4 style={{ color: "#3b82f6" }}>อัตราสำเร็จการศึกษา</h4>
-                <h2>{graduationRate}%</h2>
-              </div>
-              <div>
-                <h4 style={{ color: "#f59e0b" }}>นิสิตสำเร็จการศึกษา</h4>
-                <h2>{graduates.toLocaleString()}</h2>
-              </div>
-              <div>
-                <h4 style={{ color: "#ef4444" }}>อัตราการรับเข้า</h4>
-                <h2>{admissionRate}%</h2>
-              </div>
+              <div><h4 style={{ color: "#22c55e" }}>อัตราการคงอยู่</h4><h2>{retentionRate}%</h2></div>
+              <div><h4 style={{ color: "#3b82f6" }}>อัตราสำเร็จการศึกษา</h4><h2>{graduationRate}%</h2></div>
+              <div><h4 style={{ color: "#f59e0b" }}>นิสิตสำเร็จการศึกษา</h4><h2>{graduates.toLocaleString()}</h2></div>
+              <div><h4 style={{ color: "#ef4444" }}>อัตราการรับเข้า</h4><h2>{admissionRate}%</h2></div>
             </div>
           </div>
 
-          <div
-            style={{
-              background: "white",
-              borderRadius: 16,
-              padding: 24,
-              marginTop: 20,
-            }}
-          >
+          <div style={{ background: "white", borderRadius: 16, padding: 24, marginTop: 20 }}>
             <h2>สรุปภาพรวม</h2>
             <ul>
               <li>ผู้สมัครทั้งหมด {enrolled.toLocaleString()} คน</li>
@@ -427,37 +402,20 @@ function Dashboard() {
             </ul>
           </div>
 
-          {/* สัดส่วนและแนวโน้มภาพรวมอื่นๆ */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "40% 60%",
-              gap: 20,
-              marginTop: 24,
-            }}
-          >
-            {/* PIE */}
+          {/* สัดส่วนภาพรวมอื่นๆ */}
+          <div style={{ display: "grid", gridTemplateColumns: "40% 60%", gap: 20, marginTop: 24 }}>
             <div style={{ background: "white", padding: 24, borderRadius: 16 }}>
               <h2>สัดส่วนผู้สมัครและจำนวนรับ</h2>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
-                  <Pie
-                    data={pieData}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={70}
-                    outerRadius={110}
-                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                  >
-                    <Cell fill="#2f7ce9" />
-                    <Cell fill="#80ef48" />
+                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
+                    <Cell fill="#2f7ce9" /><Cell fill="#80ef48" />
                   </Pie>
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
-            {/* BAR - ภาพรวมแนวโน้มทั้งหมด */}
             <div style={{ background: "white", padding: 24, borderRadius: 16 }}>
               <h2>แนวโน้มการรับนิสิตภาพรวมตามสาขา (TCAS)</h2>
               <ResponsiveContainer width="100%" height={300}>
@@ -465,13 +423,7 @@ function Dashboard() {
                   <CartesianGrid strokeDasharray="2 2" vertical={false} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: 10 }} />
                   <YAxis axisLine={false} />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 12,
-                      border: "none",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                    }}
-                  />
+                  <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }} />
                   <Bar dataKey="admitted" name="จำนวนรับ" fill="#10b981" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -480,13 +432,7 @@ function Dashboard() {
 
           <div style={{ background: "white", padding: 24, borderRadius: 16, marginTop: 24 }}>
             <h2>รายละเอียดข้อมูล TCAS</h2>
-            <Table
-              columns={columns}
-              dataSource={filteredTCAS}
-              rowKey={(record, index) => index}
-              pagination={{ pageSize: 10 }}
-              scroll={{ x: true }}
-            />
+            <Table columns={columns} dataSource={filteredTCAS} rowKey={(record, index) => index} pagination={{ pageSize: 10 }} scroll={{ x: true }} />
           </div>
         </Content>
       </Layout>
