@@ -202,8 +202,8 @@ function UploadPage() {
               </Card>
 
               {/* 🔥 ส่วนที่ 2: ช่องอัปโหลดแยกสำหรับไฟล์กราฟโดยเฉพาะ */}
-              <Card title="2. ช่องเฉพาะอัปโหลดไฟล์กราฟสาขา (กราาฟสาขา(in).csv)" style={{ borderRadius: 16, border: "1px solid #bae7ff", boxShadow: "0 2px 8px rgba(59,130,246,0.05)" }} bodyStyle={{ padding: 20 }}>
-                <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>สำหรับใส่ไฟล์สถิติกราฟแท่งเพื่อแสดงสาขาทั้งหมด</p>
+              <Card title="2. ช่องเฉพาะอัปโหลดไฟล์กราฟสาขา" style={{ borderRadius: 16, border: "1px solid #bae7ff", boxShadow: "0 2px 8px rgba(59,130,246,0.05)" }} bodyStyle={{ padding: 20 }}>
+                <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>ช่องนี้สำหรับใส่ไฟล์สถิติกราฟแท่งสาขาทั้งหมด</p>
                 <div style={{ border: "2px dashed #3b82f6", padding: "24px 16px", borderRadius: 12, textAlign: "center", background: "#f0f7ff", marginBottom: 16 }}>
                   <BarChartOutlined style={{ fontSize: 28, color: "#3b82f6", marginBottom: 8 }} />
                   <div>
@@ -226,14 +226,14 @@ function UploadPage() {
 
             {/* ฝั่งขวา: แสดงรายการไฟล์ค้างในคลังและลบออก */}
             <Card title="คลังข้อมูลปัจจุบันที่มีอยู่ในระบบ" style={{ borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }} bodyStyle={{ padding: 20 }}>
-              <p style={{ color: "#666", fontSize: 13, marginBottom: 16 }}>สามารถกดลบข้อมูลแต่ละหมวดออกจากระบบแยกกันตรงนี้ได้ทันที</p>
+              <p style={{ color: "#666", fontSize: 13, marginBottom: 16 }}>คุณสามารถกดลบข้อมูลแต่ละหมวดออกจากระบบแยกกันตรงนี้ได้ทันที</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {existingCategories.map((category) => (
                   <div key={category} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: category === "กราาฟสาขา(in)" ? "#f0f7ff" : "#fff", border: "1px solid #e5e7eb", borderRadius: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: category === "" ? "#3b82f6" : "#52c41a" }}></div>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: category === "กราาฟสาขา(in)" ? "#3b82f6" : "#52c41a" }}></div>
                       <span style={{ fontWeight: 500, fontSize: 14 }}>{category}</span>
-                      {category === "" && <span style={{ fontSize: 11, color: "#3b82f6", background: "#e6f7ff", padding: "2px 6px", borderRadius: 4 }}>ข้อมูลกราฟ</span>}
+                      {category === "กราาฟสาขา(in)" && <span style={{ fontSize: 11, color: "#3b82f6", background: "#e6f7ff", padding: "2px 6px", borderRadius: 4 }}>ข้อมูลกราฟ</span>}
                     </div>
                     <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteCategory(category)} style={{ borderRadius: 6, height: 32, padding: "0 8px" }}>
                       ลบออก

@@ -39,7 +39,7 @@ function Dashboard() {
     search: ""
   });
 
-  // 🔥 State ใหม่สำหรับ ฟิลเตอร์ปีการศึกษาแยกเฉพาะของกล่องกราฟสาขา
+  // 🔥 State สำหรับฟิลเตอร์ปีการศึกษาแยกเฉพาะของกล่องกราฟสาขา (ด้านขวาของกราฟ)
   const [graphSelectedYear, setGraphSelectedYear] = useState("");
 
   const [dashboardData, setDashboardData] = useState(null);
@@ -58,18 +58,17 @@ function Dashboard() {
   // ดึงไฟล์กราฟสาขา(in) จากช่องอัปโหลดแยก
   const branchChartFile = dashboardData?.["กราาฟสาขา(in)"] || [];
 
-  // รวบรวมปีทั้งหมดเพื่อนำไปใส่ฟิลเตอร์ดรอปดาวน์หลัก
+  // รวบรวมปีทั้งหมดเพื่อนำไปใส่ฟิลเตอร์ดรอปดาวน์หลักด้านบน
   const years = useMemo(() => {
     const tcasYears = tcas.map((item) => item["ปีการศึกษา"] || item["ปี"]);
     const retainYears = retain.map((item) => item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"]);
     return [...new Set([...tcasYears, ...retainYears])].filter(Boolean).sort();
   }, [tcas, retain]);
 
-  // รวบรวมปีการศึกษาทั้งหมดที่อยู่ในไฟล์กราฟสาขา เพื่อเอาไปใช้ในฟิลเตอร์แยกของกราฟ
+  // รวบรวมปีการศึกษาทั้งหมดจากไฟล์กราฟเพื่อใช้ในฟิลเตอร์แยกของกราฟ (ด้านขวามือ)
   const graphYears = useMemo(() => {
     const yearsFromFile = branchChartFile.map((item) => item["ปีการศึกษา"] || item["ปี"] || item["ปีที่สำรวจ"]);
     const cleanYears = [...new Set(yearsFromFile)].filter(Boolean).sort();
-    // ถ้าในไฟล์ไม่มีปี ให้ดึงปีจากข้อมูลหลักมาเป็นตัวเลือกสำรอง
     return cleanYears.length > 0 ? cleanYears : years;
   }, [branchChartFile, years]);
 
@@ -119,18 +118,16 @@ function Dashboard() {
   });
   const chartData = Object.values(groupedData);
 
-  // 🔥 ปรับลอจิกกราฟ: ให้ทำงานสัมพันธ์กับ ฟิลเตอร์ปีเฉพาะทางขวา (graphSelectedYear)
+  // 🔥 แก้ไขลอจิกตรงนี้: ตัด !appliedFilters.major ออก เพื่อให้ไม่ลิงก์กับฟิลเตอร์ด้านบนเลย
   const allMajorsData = useMemo(() => {
     if (branchChartFile && branchChartFile.length > 0) {
-      // กรองไฟล์กราฟแยกตามปี (ขวามือ) และตามสาขา (ถ้าฟิลเตอร์หลักด้านบนเลือกสาขาไว้)
+      // 1. กรณีดึงข้อมูลจากไฟล์กราฟแยก [กราาฟสาขา(in)] -> เช็คแค่ฟิลเตอร์ปีของตัวเองขวามือเท่านั้น
       const filteredBranch = branchChartFile.filter(item => {
         const itemYear = String(item["ปีการศึกษา"] || item["ปี"] || item["ปีที่สำรวจ"] || "");
-        const yearMatch = !graphSelectedYear || itemYear === String(graphSelectedYear);
-        const majorMatch = !appliedFilters.major || item["ชื่อสาขา"] === appliedFilters.major;
-        return yearMatch && majorMatch;
+        return !graphSelectedYear || itemYear === String(graphSelectedYear);
       });
 
-      // ยุบรวมยอดข้อมูลหากไฟล์มีข้อมูลสาขาซ้ำกันในคนละเทอม/คนละแถว
+      // ยุบรวมยอดกรณีสาขาซ้ำแถว
       const sumMap = {};
       filteredBranch.forEach(item => {
         const name = item["ชื่อสาขา"] || "-";
@@ -141,16 +138,13 @@ function Dashboard() {
 
       return Object.keys(sumMap)
         .map(name => ({ name, count: sumMap[name] }))
-        .sort((a, b) => b.count - a.count); // เรียงลำดับจากมากไปน้อย
+        .sort((a, b) => b.count - a.count); // เรียงจากมากไปน้อย
     } else {
-      // กรณีไม่มีไฟล์แยก ให้ดึงจากข้อมูล TCAS มาใช้งานแทน (สัมพันธ์กับปีขวามือเช่นกัน)
+      // 2. Fallback กรณีไม่มีไฟล์กราฟแยก -> เช็คแค่ฟิลเตอร์ปีของตัวเองขวามือเช่นกัน
       const fallbackData = {};
       tcas.forEach(item => {
         const itemYear = String(item["ปีการศึกษา"] || item["ปี"] || "");
-        const yearMatch = !graphSelectedYear || itemYear === String(graphSelectedYear);
-        const majorMatch = !appliedFilters.major || item["ชื่อสาขา"] === appliedFilters.major;
-        
-        if (yearMatch && majorMatch) {
+        if (!graphSelectedYear || itemYear === String(graphSelectedYear)) {
           const major = item["ชื่อสาขา"] || "-";
           if (!fallbackData[major]) fallbackData[major] = { name: major, count: 0 };
           fallbackData[major].count += Number(item["จำนวนผู้สมัคร"] || 0);
@@ -158,7 +152,7 @@ function Dashboard() {
       });
       return Object.values(fallbackData).sort((a, b) => b.count - a.count);
     }
-  }, [branchChartFile, tcas, graphSelectedYear, appliedFilters.major]);
+  }, [branchChartFile, tcas, graphSelectedYear]); // เอา appliedFilters.major ออกจากการเฝ้าดูความเปลี่ยนแปลง
 
   // คำนวณความสูงตามจำนวนสาขาที่แสดงผลจริง
   const dynamicChartHeight = useMemo(() => {
@@ -334,11 +328,11 @@ function Dashboard() {
           {/* BOX GRAPH & SUMMARY LIST */}
           <div style={{ background: "white", borderRadius: 16, padding: 24, marginTop: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
             
-            {/* ส่วนหัวกล่องกราฟ: เพิ่มตัวเลือกฟิลเตอร์เปลี่ยนปีทางขวามือแยกอิสระ */}
+            {/* ส่วนหัวกล่องกราฟ: ดรอปดาวน์เปลี่ยนปีการศึกษาเฉพาะกลุ่ม */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
               <h2 style={{ margin: 0 }}>สถิติจำนวนนิสิตรวมสะสมแยกตามสาขาวิชาทั้งหมด</h2>
               
-              {/* 🔥 ฟิลเตอร์ตัวใหม่ทางขวามือ ทำงานแยกอิสระเฉพาะกล่องนี้ */}
+              {/* ฟิลเตอร์ตัวแยกขวามือสำหรับควบคุมกล่องนี้โดยเฉพาะ */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f9fafb", padding: "6px 12px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
                 <CalendarOutlined style={{ color: "#3b82f6" }} />
                 <span style={{ fontSize: 13, fontWeight: 500, color: "#4b5563" }}>ปีการศึกษา:</span>
@@ -366,8 +360,8 @@ function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* 🔥 แก้ไขจุดนี้: เพิ่ม paddingRight: 16 เพื่อดึงให้ตัวหนังสือ 'คน' ขยับเข้ามา ไม่โดนขอบจอหรือ scrollbar กินอีกต่อไป */}
-              <div style={{ borderLeft: "1px solid #f0f0f0", paddingLeft: 24, paddingRight: 16, maxHeight: dynamicChartHeight, overflowY: "auto" }}>
+              {/* ข้อความสรุปฝั่งขวาพร้อมการเว้นระยะขอบขวาไม่ให้โดน scrollbar บังคำว่า คน */}
+              <div style={{ borderLeft: "1px solid #f0f0f0", paddingLeft: 24, paddingRight: 18, maxHeight: dynamicChartHeight, overflowY: "auto" }}>
                 {allMajorsData.map((item, index) => (
                   <div key={item.name} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: index !== allMajorsData.length - 1 ? "1px solid #f5f5f5" : "none" }}>
                     <span style={{ fontSize: 13, color: "#555", paddingRight: 8 }}>{index + 1}. {item.name}</span>
