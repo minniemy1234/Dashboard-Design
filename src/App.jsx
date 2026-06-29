@@ -10,7 +10,9 @@ import UploadPage from "./pages/UploadPage";
 import StudentPage from "./pages/StudentPage";
 import FacultyPage from "./pages/FacultyPage";
 import SummaryPage from "./pages/SummaryPage";
-
+import StudentStatus from "./pages/StudentStatus";
+import EvaluationPage from "./pages/EvaluationPage";
+import GraduateQualityPage from "./pages/GraduateQualityPage";
 
 
 function App() {
@@ -43,6 +45,21 @@ function App() {
       <Route
         path="/summary"
         element={<SummaryPage />}
+
+      />
+      <Route 
+       path="/student-status" 
+       element={<StudentStatus />} 
+      />
+
+      <Route 
+       path="/evaluation" 
+       element={<EvaluationPage />} 
+      />
+
+      <Route 
+       path="/graduate-quality" 
+       element={<GraduateQualityPage />}
       />
 
 
