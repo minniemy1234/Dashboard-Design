@@ -241,7 +241,7 @@ function Dashboard() {
     { title: "จำนวนรับ", dataIndex: "จำนวนรับ", key: "admitted", render: (val) => Number(val || 0).toLocaleString() },
   ];
 
-  const pieData = [{ name: "จำนวนรับเข้า", value: admitted }, { name: "ผู้สมัครรวม", value: enrolled }];
+  const pieData = [{ name: "จำนวนรับเข้าศึกษา", value: admitted }, { name: "ผู้สมัครรวมทั้งหมด", value: enrolled }];
   const admissionRate = enrolled > 0 ? ((admitted / enrolled) * 100).toFixed(2) : 0;
   const retentionRate = totalStudents > 0 ? ((retained / totalStudents) * 100).toFixed(2) : 0;
   const graduationRate = totalStudents > 0 ? ((graduates / totalStudents) * 100).toFixed(2) : 0;
@@ -404,31 +404,72 @@ function Dashboard() {
 
           {/* สัดส่วนภาพรวมอื่นๆ */}
           <div style={{ display: "grid", gridTemplateColumns: "40% 60%", gap: 20, marginTop: 24 }}>
-            <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-              <h2>สัดส่วนผู้สมัครและจำนวนรับ</h2>
-              <div style={{ height: 300, marginTop: 15 }}>
+            {/* 🛠️ จุดที่ปรับแต่ง: ดีไซน์บล็อกสัดส่วนผู้สมัครและจำนวนรับใหม่ ให้ดูสวยงาม นุ่มนวล และอ่านง่ายขึ้น */}
+            <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <div>
+                <h2 style={{ margin: "0 0 4px 0" }}>สัดส่วนผู้สมัครและจำนวนรับ</h2>
+                <div style={{ fontSize: 13, color: "#64748b", marginBottom: 10 }}>การเปรียบเทียบแผนการรับและปริมาณผู้สนใจเข้าศึกษา</div>
+              </div>
+              
+              <div style={{ height: 240, position: "relative" }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={100} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
-                      <Cell fill="#2f7ce9" /><Cell fill="#10b981" />
+                    <Pie 
+                      data={pieData} 
+                      dataKey="value" 
+                      nameKey="name" 
+                      innerRadius={68} 
+                      outerRadius={90} 
+                      paddingAngle={5}
+                      cx="50%"
+                      cy="50%"
+                    >
+                      <Cell fill="#3b82f6" style={{ outline: "none" }} />
+                      <Cell fill="#10b981" style={{ outline: "none" }} />
                     </Pie>
-                    <Legend />
-                    <Tooltip formatter={(value) => `${Number(value).toLocaleString()} คน`} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }} 
+                      formatter={(value) => [`${Number(value).toLocaleString()} คน`, ""]} 
+                    />
                   </PieChart>
                 </ResponsiveContainer>
+                {/* เพิ่มตัวเลขอัตราส่วนไว้ตรงกลางของ Donut Chart เพื่อความพรีเมียม */}
+                <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
+                  <div style={{ fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>สัดส่วนรับเข้า</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#1e293b", marginTop: 2 }}>{admissionRate}%</div>
+                </div>
+              </div>
+
+              {/* ปรับปรุงดีไซน์ Legend ด้านล่างกราฟให้เป็นระเบียบ เป็นสัดส่วน และอ่านง่ายขึ้นชัดเจน */}
+              <div style={{ display: "flex", justifyContent: "space-around", borderTop: "1px solid #f1f5f9", paddingTop: 16, marginTop: 10 }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 13, color: "#475569" }}>
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#3b82f6", display: "inline-block" }}></span>
+                    จำนวนรับเข้าศึกษา
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: "#1e293b", marginTop: 4 }}>{admitted.toLocaleString()} <span style={{ fontSize: 12, fontWeight: 400, color: "#64748b" }}>คน</span></div>
+                </div>
+                <div style={{ style: "solid", borderLeft: "1px solid #e2e8f0" }}></div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 13, color: "#475569" }}>
+                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", display: "inline-block" }}></span>
+                    ผู้สมัครรวมทั้งหมด
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: "#1e293b", marginTop: 4 }}>{enrolled.toLocaleString()} <span style={{ fontSize: 12, fontWeight: 400, color: "#64748b" }}>คน</span></div>
+                </div>
               </div>
             </div>
 
             <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-              <h2>แนวโน้มการรับนิสิตภาพรวมตามสาขา (TCAS)</h2>
+              <h2>แนวโน้มการรับนิสิตตามสาขา (TCAS)</h2>
               <div style={{ height: 300, marginTop: 15 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="2 2" vertical={false} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: 9 }} angle={-15} textAnchor="end" interval={0} />
-                    <YAxis axisLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }} />
-                    <Bar dataKey="admitted" name="จำนวนรับ" fill="#10b981" radius={[8, 8, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: 10, fill: "#64748b" }} angle={-15} textAnchor="end" interval={0} />
+                    <YAxis axisLine={false} tickLine={false} style={{ fontSize: 11, fill: "#64748b" }} />
+                    <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
+                    <Bar dataKey="admitted" name="จำนวนรับ" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={24} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

@@ -21,13 +21,13 @@ import {
 const { Header, Content } = Layout;
 
 function UploadPage() {
-  // สำหรับไฟล์ข้อมูลทั่วไป (TCAS, นิสิตคงอยู่ ฯลฯ)
+  
   const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [sheetNames, setSheetNames] = useState([]);
   const [tempResult, setTempResult] = useState(null);
 
-  // 🔥 สำหรับไฟล์กราฟโดยเฉพาะ
+  
   const [graphFileName, setGraphFileName] = useState("");
   const [selectedGraphFile, setSelectedGraphFile] = useState(null);
   const [tempGraphResult, setTempGraphResult] = useState(null);
@@ -76,7 +76,7 @@ function UploadPage() {
     reader.readAsBinaryString(file);
   };
 
-  // 🔥 จัดการไฟล์สำหรับกราฟสาขาโดยเฉพาะ
+
   const handleGraphFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -91,7 +91,7 @@ function UploadPage() {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonOutput = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-      // บังคับเซ็ตให้อยู่ในหมวด "กราาฟสาขา(in)" เพื่อเอาไปลิ้งค์หน้าแรก
+  
       setTempGraphResult({
         "กราาฟสาขา(in)": jsonOutput
       });
@@ -99,7 +99,7 @@ function UploadPage() {
     reader.readAsBinaryString(file);
   };
 
-  // บันทึกข้อมูลทั่วไป
+
   const handleUpload = () => {
     if (!selectedFile || !tempResult) return;
     Modal.confirm({
