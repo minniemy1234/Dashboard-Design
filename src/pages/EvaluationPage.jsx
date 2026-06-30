@@ -38,7 +38,7 @@ function EvaluationPage() {
       setRawData(evalData);
     }
   }, []);
-
+  
   const cleanString = (str) => {
     if (!str) return "";
     return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
