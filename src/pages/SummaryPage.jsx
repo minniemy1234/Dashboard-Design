@@ -285,4 +285,3 @@ const employmentChart =
 }
 
 export default SummaryPage;
-
