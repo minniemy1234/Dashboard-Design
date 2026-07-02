@@ -1,4 +1,4 @@
-import { Layout, Table, Button, Progress, Card } from "antd";
+import { Layout, Table, Button, Progress, Card, Empty } from "antd"; // เพิ่ม Empty สำหรับทำกราฟเปล่า
 import Sidebar from "../components/Sidebar";
 import { useMemo, useState, useEffect } from "react";
 import {
@@ -9,7 +9,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell
+  Cell,
+  Legend
 } from "recharts";
 import { 
   SearchOutlined, 
@@ -28,17 +29,24 @@ function EvaluationPage() {
   const [rawData, setRawData] = useState([]);
   const [tableYearFilter, setTableYearFilter] = useState("");
 
+  // 🌟 State เพิ่มเติม: สำหรับเก็บข้อมูลกราฟประเมินแยกรายองค์ประกอบที่ได้มาจากช่องอัปโหลดใหม่
+  const [evalGraphData, setEvalGraphData] = useState([]);
+
   // 1. โหลดข้อมูลจริงจาก localStorage
   useEffect(() => {
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
       const parsed = JSON.parse(stored);
-      // ดึงคีย์ "ผลการประเมินคุณภาพหลักสูตร" จาก Excel
+      // ดึงคีย์ "ผลการประเมินคุณภาพหลักสูตร" จาก Excel (ระบบเดิม)
       const evalData = parsed["ผลการประเมินคุณภาพหลักสูตร"] || [];
       setRawData(evalData);
+
+      // 🌟 ดึงคีย์ข้อมูลตัวใหม่ "ข้อมูลประเมินคุณภาพ" ที่อัปโหลดมาจากหน้า UploadPage เพื่อนำมาวาดกราฟ
+      const customEvalGraph = parsed["ข้อมูลประเมินคุณภาพ"] || [];
+      setEvalGraphData(customEvalGraph);
     }
   }, []);
-  
+
   const cleanString = (str) => {
     if (!str) return "";
     return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
@@ -65,7 +73,7 @@ function EvaluationPage() {
     setAppliedFilters({ year: selectedYear, major: selectedMajor });
   };
 
-  // 3. กรองและคำนวณข้อมูลสำหรับภาพรวมหลัก (KPI & กราฟ)
+  // 3. กรองและคำนวณข้อมูลสำหรับภาพรวมหลัก (KPI)
   const filteredData = useMemo(() => {
     return rawData.filter(item => {
       const year = extractYear(item["ปีการศึกษา"]);
@@ -142,16 +150,7 @@ function EvaluationPage() {
     };
   }, [filteredData]);
 
-  // เตรียมข้อมูลสำหรับกราฟแท่ง (เปรียบเทียบตามองค์ประกอบคะแนนการประเมิน)
-  const chartData = [
-    { name: "องค์ฯ 2 บัณฑิต", score: Number(stats.comp2), color: "#722ed1" },
-    { name: "องค์ฯ 3 นิสิต", score: Number(stats.comp3), color: "#722ed1" },
-    { name: "องค์ฯ 4 อาจารย์", score: Number(stats.comp4), color: "#722ed1" },
-    { name: "องค์ฯ 5 หลักสูตร", score: Number(stats.comp5), color: "#722ed1" },
-    { name: "องค์ฯ 6 สิ่งสนับสนุน", score: Number(stats.comp6), color: "#722ed1" },
-  ];
-
-  // นิยามคอลัมน์ของตารางข้อมูลรายละเอียด
+  // นิยามคอลัมน์ของตารางข้อมูลรายละเอียด ด้านล่างสุด
   const tableColumns = [
     { title: "ปีการศึกษา", dataIndex: "year", key: "year", width: 105, align: "center" },
     { title: "สาขาวิชา", dataIndex: "major", key: "major" },
@@ -166,11 +165,18 @@ function EvaluationPage() {
     { title: "คะแนนเฉลี่ยรวม", dataIndex: "คะแนนเฉลี่ยรวม", key: "total", align: "center", render: v => <span style={{ color: "#722ed1", fontWeight: "bold" }}>{v || "-"}</span> },
   ];
 
+  // 🌟 นิยามคอลัมน์ของตารางใหม่สำหรับข้อมูลประเมินคุณภาพรายองค์ประกอบ (ล้อตามกราฟใหม่)
+  const evalTableColumns = [
+    { title: "องค์ประกอบคุณภาพ", dataIndex: "name", key: "name" },
+    { title: "คะแนนประเมินปีนี้", dataIndex: "score", key: "score", align: "center", render: (v) => <strong style={{ color: "#f59e0b" }}>{v}</strong> },
+    { title: "ค่าเป้าหมาย / ปีที่ผ่านมา", dataIndex: "target", key: "target", align: "center" },
+  ];
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Sidebar />
       <Layout>
-        {/* HEADER ZONE (ดีไซน์ระยะกระชับ สวยงาม) */}
+        {/* HEADER ZONE */}
         <Header style={{ background: "white", padding: "16px 24px", height: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f0f0f0" }}>
           <div>
             <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "600", color: "#1f1f1f", lineHeight: "1.2" }}>ผลการประเมินคุณภาพหลักสูตร</h2>
@@ -263,27 +269,56 @@ function EvaluationPage() {
             </div>
           </div>
 
-          {/* CHART ZONE */}
+          {/* 🌟 CHART ZONE (ปรับเงื่อนไขแสดงผลตามที่คุณต้องการแบบ 100%) */}
           <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24 }}>
             <h3 style={{ marginBottom: 20 }}>แผนภูมิเปรียบเทียบผลการประเมินคุณภาพรายองค์ประกอบ</h3>
-            <div style={{ height: 320 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 5]} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: '#f9f0ff' }} />
-                  <Bar dataKey="score" radius={[8, 8, 0, 0]} barSize={45}>
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            
+            {/* 🛠️ ตรวจสอบสถานะ: ถ้าในระบบยังไม่มีไฟล์กราฟประเมินแยกอัปโหลดเข้ามา จะขึ้นกล่องว่างเปล่า (Empty State) ก่อนทันที */}
+            {evalGraphData.length === 0 ? (
+              <div style={{ padding: "60px 0", border: "2px dashed #cbd5e1", borderRadius: 12, background: "#fafafa" }}>
+                <Empty 
+                  description={
+                    <span style={{ color: "#94a3b8", fontSize: 14 }}>
+                      ยังไม่มีการอัปโหลดไฟล์สถิติสำหรับแผนภูมินี้ในระบบ <br />
+                      <span style={{ fontSize: 12, color: "#cbd5e1" }}>กรุณาเพิ่มไฟล์ที่หัวข้อ "ช่องเฉพาะอัปโหลดกราฟประเมินคุณภาพรายองค์ประกอบ" ที่หน้าอัปโหลดหลักก่อน</span>
+                    </span>
+                  } 
+                />
+              </div>
+            ) : (
+              /* ถ้าอัปโหลดไฟล์เข้ามาที่หน้า Data Management เรียบร้อยแล้ว กราฟเปรียบเทียบตัวใหม่คู่เป้าหมายจะถูกวาดทันที */
+              <div style={{ height: 350 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={evalGraphData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: 12, fill: "#64748b" }} />
+                    <YAxis axisLine={false} tickLine={false} style={{ fontSize: 12, fill: "#64748b" }} />
+                    <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} />
+                    <Legend verticalAlign="top" height={40} iconType="circle" />
+                    
+                    <Bar dataKey="score" name="คะแนนประเมินปีนี้" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={24} />
+                    <Bar dataKey="target" name="คะแนนเป้าหมาย / ปีที่ผ่านมา" fill="#cbd5e1" radius={[6, 6, 0, 0]} barSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
 
-          {/* TABLE ZONE */}
+          {/* 🌟 TABLE ZONE สำหรับข้อมูลประเมินรายองค์ประกอบ (จะปรากฏขึ้นมาคู่อัตโนมัติตอนที่มีข้อมูลกราฟแล้ว) */}
+          {evalGraphData.length > 0 && (
+            <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24 }}>
+              <h3 style={{ marginBottom: 16 }}>ตารางแสดงรายละเอียดผลคะแนนตามองค์ประกอบคุณภาพ</h3>
+              <Table 
+                columns={evalTableColumns} 
+                dataSource={evalGraphData} 
+                rowKey={(r, idx) => `eval-row-${idx}`} 
+                pagination={false} 
+                bordered 
+              />
+            </div>
+          )}
+
+          {/* TABLE ZONE ระบบเดิม (คงไว้ 100%) */}
           <div style={{ background: "white", padding: 24, borderRadius: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
               <h3 style={{ margin: 0 }}>รายละเอียดคะแนนการประเมินหลักสูตรรายปี</h3>
