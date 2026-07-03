@@ -187,16 +187,16 @@ function GraduateQualityPage() {
           <div style={{ background: "#fff", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div>
-                <div style={{ marginBottom: 8, fontWeight: 600 }}>ปีการศึกษา (KPI & กราฟ)</div>
+                <div style={{ marginBottom: 8, fontWeight: 600 }}>ปีการศึกษา </div>
                 <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9", outline: "none" }}>
-                  <option value="">ทั้งหมดทุกปี</option>
+                  <option value="">ทั้งหมด</option>
                   {years.map(y => <option key={y} value={y}>ปีการศึกษา {y}</option>)}
                 </select>
               </div>
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>สาขาวิชา</div>
                 <select value={selectedMajor} onChange={(e) => setSelectedMajor(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9", outline: "none" }}>
-                  <option value="">ทั้งหมดทุกสาขา</option>
+                  <option value="">ทั้งหมด</option>
                   {majors.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
