@@ -148,7 +148,7 @@ function StudentStatus() {
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>ปีการศึกษา</div>
                 <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9" }}>
-                  <option value="">ทั้งหมด (ทุกปีการศึกษา)</option>
+                  <option value="">ทั้งหมด</option>
                   {years.map((year) => <option key={year} value={year}>{year}</option>)}
                 </select>
               </div>
@@ -156,7 +156,7 @@ function StudentStatus() {
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>สาขาวิชา</div>
                 <select value={selectedMajor} onChange={(e) => setSelectedMajor(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9" }}>
-                  <option value="">ทั้งหมด (ทุกสาขาวิชา)</option>
+                  <option value="">ทั้งหมด</option>
                   {majors.map((major) => <option key={major} value={major}>{major}</option>)}
                 </select>
               </div>
