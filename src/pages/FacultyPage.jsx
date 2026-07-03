@@ -192,7 +192,7 @@ function FacultyPage() {
           <div style={{ background: "#fff", padding: 20, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             <Row gutter={[16, 16]} align="bottom">
               <Col xs={24} md={10}>
-                <div style={{ marginBottom: 6, fontWeight: 600 }}>เลือกคณะ / สาขาวิชา (ภาพรวมหลัก)</div>
+                <div style={{ marginBottom: 6, fontWeight: 600 }}>เลือกคณะ / สาขาวิชา</div>
                 <select 
                   value={selectedMajor} 
                   onChange={(e) => {
@@ -201,7 +201,7 @@ function FacultyPage() {
                   }} 
                   style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d9d9d9", outline: "none" }}
                 >
-                  <option value="">แสดงทุกสาขาวิชา</option>
+                  <option value="">ทุกสาขาวิชา</option>
                   {majors.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </Col>
