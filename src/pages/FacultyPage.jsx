@@ -201,7 +201,7 @@ function FacultyPage() {
                   }} 
                   style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d9d9d9", outline: "none" }}
                 >
-                  <option value="">ทุกสาขาวิชา</option>
+                  <option value="">แสดงทุกสาขาวิชา</option>
                   {majors.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </Col>
