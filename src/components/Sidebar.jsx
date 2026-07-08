@@ -22,7 +22,7 @@ function Sidebar() {
     <Sider
       width={240}
       style={{
-        background: "#054228",
+        background: "#142549",
         minHeight: "100vh",
       }}
     >
@@ -44,7 +44,7 @@ function Sidebar() {
         mode="inline"
         theme="dark"
         style={{
-          background: "#054228",
+          background: "#142549",
           borderRight: "none",
         }}
         selectedKeys={[location.pathname]}
