@@ -9,7 +9,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Cell,
+  LabelList
 } from "recharts";
 import { 
   UserOutlined, 
@@ -62,7 +63,7 @@ function FacultyPage() {
     });
   }, [rawData, selectedMajor, searchText]);
 
-  // 4. กรองข้อมูลสำหรับตารางด้านล่าง
+  // 4. กรองข้อมูลสำหรับตารางด้านล่าง (แยกอิสระจากตารางหากเลือก Filter ท้ายตาราง)
   const tableData = useMemo(() => {
     return rawData.filter(item => {
       const majorClean = cleanString(item["สาขาวิชา"] || item["ชื่อสาขา"] || item["สาขา"]);
@@ -77,7 +78,7 @@ function FacultyPage() {
     });
   }, [rawData, selectedMajor, tableMajorFilter, searchText]);
 
-  // 5. คำนวณสถิติภาพรวม (KPI)
+  // 5. คำนวณสถิติภาพรวม (KPI) - ปรับลำดับการดักคำเพื่อไม่ให้ รศ. และ ผศ. ไหลไปรวมกับ ศ.
   const stats = useMemo(() => {
     const total = mainFilteredData.length;
     let phdCount = 0;
@@ -85,16 +86,33 @@ function FacultyPage() {
     let academicPositionCount = 0;
 
     mainFilteredData.forEach(item => {
-      const degree = String(item["คุณวุฒิ"] || item["วุฒิการศึกษา"] || item["การศึกษา"] || "");
-      const position = String(item["ตำแหน่งทางวิชาการ"] || item["ตำแหน่งวิชาการ"] || item["ตำแหน่ง"] || "");
+      const degree = String(item["คุณวุฒิ"] || item["วุฒิการศึกษา"] || item["การศึกษา"] || "").trim();
+      const position = String(item["ตำแหน่งทางวิชาการ"] || item["ตำแหน่งวิชาการ"] || item["ตำแหน่ง"] || "").trim();
+      const name = String(item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "");
 
-      if (degree.includes("ปริญญาเอก") || degree.toLowerCase().includes("ph.d") || degree.includes("ดร.")) {
+      // ตรวจสอบปริญญาเอก
+      if (
+        degree.includes("ปริญญาเอก") || 
+        degree.toLowerCase().includes("ph.d") || 
+        degree.includes("ดร.") ||
+        name.includes("ดร.")
+      ) {
         phdCount++;
-      } else if (degree.includes("ปริญญาโท") || degree.toLowerCase().includes("master")) {
+      } else if (
+        degree.includes("ปริญญาโท") || 
+        degree.toLowerCase().includes("master") || 
+        degree.toLowerCase().includes("m.sc") || 
+        degree.toLowerCase().includes("m.a.")
+      ) {
         masterCount++;
       }
 
-      if (position.includes("ผศ.") || position.includes("รศ.") || position.includes("ศ.") || position.includes("ศาสตราจารย์")) {
+      // ตรวจสอบตำแหน่งทางวิชาการ (สกัดกลุ่มที่มีคำว่า "รศ" และ "ผศ" ออกก่อนตรวจ "ศ")
+      if (
+        position.includes("รองศาสตราจารย์") || position.includes("รศ") || name.includes("รศ") ||
+        position.includes("ผู้ช่วยศาสตราจารย์") || position.includes("ผศ") || name.includes("ผศ") ||
+        position.includes("ศาสตราจารย์") || (position.includes("ศ.") && !position.includes("ผศ") && !position.includes("รศ")) || name.includes("ศ.")
+      ) {
         academicPositionCount++;
       }
     });
@@ -102,25 +120,33 @@ function FacultyPage() {
     return { total, phdCount, masterCount, academicPositionCount };
   }, [mainFilteredData]);
 
-  // 6. เตรียมข้อมูลสถิติตำแหน่งเพื่อไปวาดกราฟแท่ง
+  // 6. เตรียมข้อมูลตำแหน่งเพื่อไปวาดกราฟแท่ง - เช็คจากคำยาว/จำเพาะเจาะจง (รศ. / ผศ.) ก่อน เพื่อป้องกัน "ศ." ไปแย่งนับ
   const chartData = useMemo(() => {
     if (mainFilteredData.length === 0) return [];
     
     let prof = 0, assocProf = 0, asstProf = 0, lecturer = 0;
     
     mainFilteredData.forEach(item => {
-      const pos = String(item["ตำแหน่งทางวิชาการ"] || item["ตำแหน่งวิชาการ"] || item["ตำแหน่ง"] || "");
-      if (pos.includes("ศ.") || pos.includes("ศาสตราจารย์")) prof++;
-      else if (pos.includes("รศ.")) assocProf++;
-      else if (pos.includes("ผศ.")) asstProf++;
-      else lecturer++;
+      const pos = String(item["ตำแหน่งทางวิชาการ"] || item["ตำแหน่งวิชาการ"] || item["ตำแหน่ง"] || "").trim();
+      const name = String(item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "");
+
+      // 🌟 สลับนำคำยาวขึ้นก่อนเพื่อความถูกต้องแม่นยำสูงสุด
+      if (pos.includes("รองศาสตราจารย์") || pos.includes("รศ.") || name.includes("รศ.")) {
+        assocProf++;
+      } else if (pos.includes("ผู้ช่วยศาสตราจารย์") || pos.includes("ผศ.") || name.includes("ผศ.")) {
+        asstProf++;
+      } else if (pos.includes("ศาสตราจารย์") || pos.includes("ศ.") || name.startsWith("ศ.")) {
+        prof++;
+      } else {
+        lecturer++;
+      }
     });
 
     return [
-      { name: "ศาสตราจารย์ (ศ.)", จำนวน: prof },
-      { name: "รองศาสตราจารย์ (รศ.)", จำนวน: assocProf },
-      { name: "ผู้ช่วยศาสตราจารย์ (ผศ.)", จำนวน: asstProf },
-      { name: "อาจารย์ / อื่นๆ", จำนวน: lecturer },
+      { name: "ศาสตราจารย์ (ศ.)", จำนวน: prof, color: "#722ed1" },
+      { name: "รองศาสตราจารย์ (รศ.)", จำนวน: assocProf, color: "#2f54eb" },
+      { name: "ผู้ช่วยศาสตราจารย์ (ผศ.)", จำนวน: asstProf, color: "#13c2c2" },
+      { name: "อาจารย์ / อื่นๆ", จำนวน: lecturer, color: "#fa8c16" },
     ];
   }, [mainFilteredData]);
 
@@ -232,13 +258,13 @@ function FacultyPage() {
             </Card>
           ) : (
             <>
-              {/* 🌟 ZONE ปรับปรุงใหม่: เปลี่ยนกรอบ KPI การ์ดให้เป็นธีมเดียวกับ Dashboard หลัก */}
+              {/* KPI CARDS ZONE */}
               <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={24} sm={8} md={6}>
                   <div style={{ background: "#e6f7ff", padding: 20, borderRadius: 15, border: "1px solid #91d5ff", position: "relative" }}>
                     <div style={{ color: "#8c8c8c", fontSize: 12 }}>บุคลากรสายวิชาการ</div>
                     <h4 style={{ margin: "5px 0", fontSize: 14, color: "#0050b3" }}>อาจารย์ทั้งหมด</h4>
-                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#0050b3" }}>{stats.total} <span style={{ fontSize: 14, fontWeight: "normal", color: "#8c8c8c" }}>ท่าน</span></h2>
+                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#0050b3" }}>{stats.total.toLocaleString()} <span style={{ fontSize: 14, fontWeight: "normal", color: "#8c8c8c" }}>ท่าน</span></h2>
                     <UserOutlined style={{ fontSize: 28, color: "#1890ff", position: "absolute", right: 20, bottom: 20, opacity: 0.3 }} />
                   </div>
                 </Col>
@@ -246,7 +272,7 @@ function FacultyPage() {
                   <div style={{ background: "#f6ffed", padding: 20, borderRadius: 15, border: "1px solid #b7eb8f", position: "relative" }}>
                     <div style={{ color: "#8c8c8c", fontSize: 12 }}>ระดับคุณวุฒิ</div>
                     <h4 style={{ margin: "5px 0", fontSize: 14, color: "#237804" }}>จบการศึกษาปริญญาเอก</h4>
-                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#237804" }}>{stats.phdCount} <span style={{ fontSize: 14, fontWeight: "normal", color: "#8c8c8c" }}>ท่าน</span></h2>
+                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#237804" }}>{stats.phdCount.toLocaleString()} <span style={{ fontSize: 14, fontWeight: "normal", color: "#8c8c8c" }}>ท่าน</span></h2>
                     <BookOutlined style={{ fontSize: 28, color: "#52c41a", position: "absolute", right: 20, bottom: 20, opacity: 0.3 }} />
                   </div>
                 </Col>
@@ -254,7 +280,7 @@ function FacultyPage() {
                   <div style={{ background: "#fffbe6", padding: 20, borderRadius: 15, border: "1px solid #ffe58f", position: "relative" }}>
                     <div style={{ color: "#8c8c8c", fontSize: 12 }}>ระดับคุณวุฒิ</div>
                     <h4 style={{ margin: "5px 0", fontSize: 14, color: "#ad6800" }}>จบการศึกษาปริญญาโท</h4>
-                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#ad6800" }}>{stats.masterCount} <span style={{ fontSize: 14, fontWeight: "normal", color: "#8c8c8c" }}>ท่าน</span></h2>
+                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#ad6800" }}>{stats.masterCount.toLocaleString()} <span style={{ fontSize: 14, fontWeight: "normal", color: "#8c8c8c" }}>ท่าน</span></h2>
                     <BookOutlined style={{ fontSize: 28, color: "#faad14", position: "absolute", right: 20, bottom: 20, opacity: 0.3 }} />
                   </div>
                 </Col>
@@ -262,7 +288,7 @@ function FacultyPage() {
                   <div style={{ background: "#f9f0ff", padding: 20, borderRadius: 15, border: "1px solid #d3adf7", position: "relative" }}>
                     <div style={{ color: "#8c8c8c", fontSize: 12 }}>ตำแหน่งวิชาการ</div>
                     <h4 style={{ margin: "5px 0", fontSize: 14, color: "#531dab" }}>ดำรงตำแหน่ง ผศ./รศ./ศ.</h4>
-                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#531dab" }}>{stats.academicPositionCount} <span style={{ fontSize: 14, fontWeight: "normal", color: "#8c8c8c" }}>ท่าน</span></h2>
+                    <h2 style={{ margin: 0, fontSize: 28, fontWeight: "bold", color: "#531dab" }}>{stats.academicPositionCount.toLocaleString()} <span style={{ fontSize: 14, fontWeight: "normal", color: "#8c8c8c" }}>ท่าน</span></h2>
                     <SolutionOutlined style={{ fontSize: 28, color: "#722ed1", position: "absolute", right: 20, bottom: 20, opacity: 0.3 }} />
                   </div>
                 </Col>
@@ -270,16 +296,20 @@ function FacultyPage() {
 
               {/* GRAPH ZONE */}
               <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <h3 style={{ marginBottom: 20 }}>แผนภูมิแสดงจำนวนอาจารย์แยกตามตำแหน่งทางวิชาการ</h3>
-                <div style={{ height: 300 }}>
+                <h3 style={{ marginBottom: 20, fontWeight: 600, fontSize: 15 }}>📊 แผนภูมิแสดงจำนวนอาจารย์แยกตามตำแหน่งทางวิชาการ (กรองตามเงื่อนไขหลัก)</h3>
+                <div style={{ height: 350 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                      <YAxis axisLine={false} tickLine={false} allowDecimals={false} />
-                      <Tooltip cursor={{ fill: '#f5f5f5' }} />
-                      <Legend />
-                      <Bar dataKey="จำนวน" fill="#1890ff" radius={[6, 6, 0, 0]} barSize={40} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: 12, fontWeight: 500 }} />
+                      <YAxis axisLine={false} tickLine={false} allowDecimals={false} style={{ fontSize: 12 }} />
+                      <Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value} ท่าน`, 'จำนวนอาจารย์']} />
+                      <Bar dataKey="จำนวน" radius={[6, 6, 0, 0]} barSize={45}>
+                        <LabelList dataKey="จำนวน" position="top" style={{ fill: '#475569', fontSize: 13, fontWeight: 'bold' }} formatter={(v) => v > 0 ? `${v} ท่าน` : ''} />
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -288,7 +318,7 @@ function FacultyPage() {
               {/* TABLE ZONE */}
               <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-                  <h3 style={{ margin: 0 }}>รายชื่อและรายละเอียดคุณวุฒิอาจารย์</h3>
+                  <h3 style={{ margin: 0, fontWeight: 600, fontSize: 15 }}>📋 รายชื่อและรายละเอียดคุณวุฒิอาจารย์</h3>
                   
                   <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f9fafb", padding: "6px 14px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
                     <FilterOutlined style={{ color: "#1890ff" }} />
