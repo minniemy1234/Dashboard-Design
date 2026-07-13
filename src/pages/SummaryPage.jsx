@@ -1,3 +1,4 @@
+// ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
 import { Layout, Card, Progress, Row, Col, Statistic, Empty } from "antd";
 import Sidebar from "../components/Sidebar";
 import { useMemo, useState, useEffect } from "react";
@@ -68,7 +69,6 @@ function SummaryReportPage() {
 
     const q2 = cleanVal("ผู้สำเร็จการศึกษา");
     const q3_direct = cleanVal("สถานภาพของบัณฑิตทำงานแล้วจำนวน");
-    const q4 = cleanVal("ทำงานธุรกิจส่วนตัว/อิสระจำนวน");
     const q5 = cleanVal("มีงานทำเดิม");
     const q6 = cleanVal("ศึกษาต่อ");
     const q7 = cleanVal("บัณฑิตบวช");
@@ -132,13 +132,13 @@ function SummaryReportPage() {
     <Layout style={{ minHeight: "100vh" }}>
       <Sidebar />
       <Layout>
-        {/* HEADER SECTION */}
-        <Header style={{ background: "white", padding: "20px 32px", height: "auto", borderBottom: "1px solid #f0f0f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#1e293b" }}>
+        {/* ส่วนหัวข้อ (Header): จัดช่องไฟด้วย gap: "4px" คลีน สวย โปร่งตา เข้าเซตกับทุกหน้าค่ะ */}
+        <Header style={{ background: "white", padding: "16px 24px", height: "auto", borderBottom: "1px solid #f0f0f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600", color: "#1f1f1f", lineHeight: "1.2", display: "flex", alignItems: "center" }}>
               <DashboardOutlined style={{ marginRight: 8, color: "#0077b6" }} /> Executive Summary Report
             </h2>
-            <div style={{ color: "#64748b", fontSize: "13px", marginTop: 4 }}>
+            <div style={{ color: "#8c8c8c", fontSize: "13px", lineHeight: "1.4", margin: 0 }}>
               รายงานสรุปผลการดำเนินงานและสถิติตัวบ่งชี้สำคัญของคณะประจำปีการศึกษา ({statsSummary.year})
             </div>
           </div>
@@ -167,7 +167,7 @@ function SummaryReportPage() {
             <Col xs={24} md={16}>
               <Row gutter={[16, 16]}>
                 <Col span={12}>
-                  <Card style={cardStyle} bodyStyle={{ padding: 20 }}>
+                  <Card style={cardStyle} styles={{ body: { padding: 20 } }}>
                     <Statistic 
                       title={<span style={{ color: "#64748b", fontWeight: 500 }}>ผู้สำเร็จการศึกษาทั้งหมด</span>}
                       value={statsSummary.totalGrads}
@@ -178,7 +178,7 @@ function SummaryReportPage() {
                   </Card>
                 </Col>
                 <Col span={12}>
-                  <Card style={cardStyle} bodyStyle={{ padding: 20 }}>
+                  <Card style={cardStyle} styles={{ body: { padding: 20 } }}>
                     <Statistic 
                       title={<span style={{ color: "#64748b", fontWeight: 500 }}>บัณฑิตที่ได้งานทำ & ประกอบอาชีพ</span>}
                       value={statsSummary.working}
@@ -189,7 +189,7 @@ function SummaryReportPage() {
                   </Card>
                 </Col>
                 <Col span={12}>
-                  <Card style={cardStyle} bodyStyle={{ padding: 20 }}>
+                  <Card style={cardStyle} styles={{ body: { padding: 20 } }}>
                     <Statistic 
                       title={<span style={{ color: "#64748b", fontWeight: 500 }}>คะแนนประเมินหลักสูตรเฉลี่ย (เต็ม 5)</span>}
                       value={qaSummary}
@@ -199,7 +199,7 @@ function SummaryReportPage() {
                   </Card>
                 </Col>
                 <Col span={12}>
-                  <Card style={cardStyle} bodyStyle={{ padding: 20 }}>
+                  <Card style={cardStyle} styles={{ body: { padding: 20 } }}>
                     <Statistic 
                       title={<span style={{ color: "#64748b", fontWeight: 500 }}>ความพึงพอใจต่อบัณฑิต (เต็ม 5)</span>}
                       value={gradSatisfaction}
@@ -214,7 +214,6 @@ function SummaryReportPage() {
 
           {/* SECTION 2 & 3: CHART & INSIGHTS GRID */}
           <Row gutter={[24, 24]}>
-            {/* กราฟแท่งแนวนอนสุดโมเดิร์นพร้อมตัวเลขปลายแท่ง */}
             <Col xs={24} lg={15}>
               <Card title={<span style={{ fontWeight: 600 }}><PieChartOutlined style={{ marginRight: 6, color: "#00b4d8" }} /> สรุปประเภทหน่วยงานที่บัณฑิตเข้าทำงานหลัก</span>} style={cardStyle}>
                 <div style={{ height: 320 }}>
@@ -226,7 +225,6 @@ function SummaryReportPage() {
                         <XAxis type="number" axisLine={false} tickLine={false} style={{ fontSize: 11 }} />
                         <Tooltip formatter={(value) => [`${value} คน`, 'จำนวนคน']} cursor={{ fill: '#f8fafc' }} />
                         <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
-                          {/* เปิดตัวเลขต่อท้ายแท่งทันทีตามที่ปรับปรุงระบบไว้ */}
                           <LabelList 
                             dataKey="value" 
                             position="right" 
@@ -249,7 +247,6 @@ function SummaryReportPage() {
               </Card>
             </Col>
 
-            {/* ส่วนกล่องข้อความสรุปเชิงวิเคราะห์เชิงบริหาร */}
             <Col xs={24} lg={9}>
               <Card title={<span style={{ fontWeight: 600 }}><StarOutlined style={{ marginRight: 6, color: "#f59e0b" }} /> Executive Strategic Insights</span>} style={{ ...cardStyle, height: "100%" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
