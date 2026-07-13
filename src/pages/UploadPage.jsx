@@ -1,3 +1,4 @@
+// ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
 import Sidebar from "../components/Sidebar";
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
@@ -217,7 +218,7 @@ function UploadPage() {
           setDashboardData(currentDashboard);
           localStorage.setItem("dashboardData", JSON.stringify(currentDashboard));
           clearMainUpload();
-          message.success("นำเข้าไฟล์รายปีเรียบร้อยค่ะ");
+          message.success("นำเข้าไฟล์รายปีเรียบร้อย");
         }
       });
     } else {
@@ -227,7 +228,7 @@ function UploadPage() {
         onOk() {
           saveToLocalStorage(tempResult);
           clearMainUpload();
-          message.success(`อัปเดตข้อมูลหมวด ${detectedCategory} สำเร็จแล้วค่ะ`);
+          message.success(`อัปเดตข้อมูลหมวด ${detectedCategory} สำเร็จแล้ว`);
         }
       });
     }
@@ -295,7 +296,7 @@ function UploadPage() {
     setSelectedEmpChartFile(null); 
     setEmpChartFileName(""); 
     setTempEmpChartRawData(null);
-    message.success("ล้างข้อมูลเก่าและบันทึกเนื้อหาไฟล์ใหม่ของแผนภูมิแท่งเรียบร้อยค่ะ");
+    message.success("ล้างข้อมูลเก่าและบันทึกเนื้อหาไฟล์ใหม่ของแผนภูมิแท่งเรียบร้อย");
   };
 
   const saveToLocalStorage = (newData) => {
@@ -376,24 +377,28 @@ function UploadPage() {
     <AntLayout style={{ minHeight: "100vh" }}>
       <Sidebar />
       <AntLayout>
+        
         <Header style={{ background: "white", padding: "16px 24px", height: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f0f0f0" }}>
-          <div>
-            <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "600", color: "#1f1f1f" }}>Data Management</h2>
-            <div style={{ color: "#8c8c8c", fontSize: "13px" }}>ช่องทางอัปโหลดไฟล์ส่วนขยายระบบและคลังฐานข้อมูลสารสนเทศทั้งหมดภายในคณะ</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600", color: "#1f1f1f", lineHeight: "1.2" }}>
+              Data Management
+            </h2>
+            <div style={{ color: "#8c8c8c", fontSize: "13px", lineHeight: "1.4", margin: 0 }}>
+              ช่องทางอัปโหลดไฟล์ส่วนขยายระบบและคลังฐานข้อมูลสารสนเทศทั้งหมดภายในคณะ
+            </div>
           </div>
         </Header>
 
         <Content style={{ padding: "24px 32px 32px 32px", background: "#f5f5f5" }}>
-          {/* ปรับสัดส่วนเป็น 50:50 สมมาตร สะอาดตา */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
             
             {/* ฝั่งซ้าย: รวมช่องอัปโหลด */}
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               
               {/* ช่องที่ 1 */}
-              <AntCard title="🚀 1. ช่องอัปโหลดอัจฉริยะ (จำแนกคลังอัตโนมัติ)" style={{ ...commonCardStyle, borderTop: "4px solid #0050b3" }}>
+              <AntCard title="🚀 1. ช่องอัปโหลดไฟล์" style={{ ...commonCardStyle, borderTop: "4px solid #0050b3" }}>
                 <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
-                  <b>ระบบวิเคราะห์คอลัมน์:</b> วางไฟล์ข้อมูลดิบชุดใดก็ได้ ระบบจะทำการตรวจสอบและนำเข้าสู่คลังหลักให้ทันทีค่ะ
+                  <b>ระบบวิเคราะห์คอลัมน์:</b> วางไฟล์ข้อมูลดิบชุดใดก็ได้ ระบบจะทำการตรวจสอบและนำเข้าสู่คลังหลักให้ทันที
                 </p>
                 <div style={{ ...commonUploadBoxStyle, border: "2px dashed #0050b3", background: "#f0f5ff" }}>
                   <UploadOutlined style={{ fontSize: 26, color: "#0050b3", marginBottom: 8 }} />
@@ -440,7 +445,7 @@ function UploadPage() {
               </AntCard>
 
               {/* ช่องเฉพาะ 2 */}
-              <AntCard title="📋 3. ช่องเฉพาะนิสิตคงอยู่ (ปีที่สำรวจ) - ภาคปลาย" style={commonCardStyle}>
+              <AntCard title="📋 3. ช่องเฉพาะกราฟนิสิตคงอยู่" style={commonCardStyle}>
                 <div style={commonUploadBoxStyle}>
                   <UploadOutlined style={{ fontSize: 24, color: "#00b4d8", marginBottom: 6 }} />
                   <div>
@@ -450,32 +455,6 @@ function UploadPage() {
                 </div>
                 {surveyFileName && <div style={{ marginBottom: 12, fontSize: 12, color: "#64748b" }}><FileTextOutlined /> {surveyFileName}</div>}
                 <AntButton type="primary" disabled={!selectedSurveyFile} onClick={handleSurveyUpload} style={commonButtonStyle}>ยืนยันนำเข้าข้อมูลปีที่สำรวจ</AntButton>
-              </AntCard>
-
-              {/* ช่องเฉพาะ 3 */}
-              <AntCard title="📬 4. ช่องเฉพาะนิสิตคงอยู่ (ปีศึกษาที่รับเข้า) - ภาคต้น" style={commonCardStyle}>
-                <div style={commonUploadBoxStyle}>
-                  <UploadOutlined style={{ fontSize: 24, color: "#00b4d8", marginBottom: 6 }} />
-                  <div>
-                    <label htmlFor="admit-upload" style={{ cursor: "pointer", color: "#00b4d8", fontWeight: 600 }}>เลือกไฟล์สถิตินิสิต (ปีศึกษาที่รับเข้า)</label>
-                    <input id="admit-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleAdmitFileChange} style={{ display: "none" }} />
-                  </div>
-                </div>
-                {admitFileName && <div style={{ marginBottom: 12, fontSize: 12, color: "#64748b" }}><FileTextOutlined /> {admitFileName}</div>}
-                <AntButton type="primary" disabled={!selectedAdmitFile} onClick={handleAdmitUpload} style={commonButtonStyle}>ยืนยันนำเข้าข้อมูลปีรับเข้า</AntButton>
-              </AntCard>
-
-              {/* ช่องเฉพาะ 4 */}
-              <AntCard title="⭐ 5. ช่องเฉพาะประเมินคุณภาพหลักสูตรรายองค์ประกอบ" style={commonCardStyle}>
-                <div style={commonUploadBoxStyle}>
-                  <UploadOutlined style={{ fontSize: 24, color: "#00b4d8", marginBottom: 6 }} />
-                  <div>
-                    <label htmlFor="eval-upload" style={{ cursor: "pointer", color: "#00b4d8", fontWeight: 600 }}>เลือกไฟล์ประเมินคุณภาพรายองค์ประกอบ</label>
-                    <input id="eval-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileChangeEval} style={{ display: "none" }} />
-                  </div>
-                </div>
-                {evalFileName && <div style={{ marginBottom: 12, fontSize: 12, color: "#64748b" }}><FileTextOutlined /> {evalFileName}</div>}
-                <AntButton type="primary" disabled={!selectedEvalFile} onClick={handleEvalUpload} style={commonButtonStyle}>ยืนยันนำเข้ากราฟประเมิน</AntButton>
               </AntCard>
 
             </div>
