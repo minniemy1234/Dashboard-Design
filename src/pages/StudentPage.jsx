@@ -10,7 +10,6 @@ import {
   FilterOutlined,
   CheckCircleOutlined,
   InfoCircleOutlined,
-  ArrowUpOutlined,
   DashboardOutlined
 } from "@ant-design/icons";
 
@@ -183,7 +182,7 @@ function StudentPage() {
               ข้อมูลสถิตินิสิตประจำคณะ
             </h2>
             <div style={{ color: "#8c8c8c", fontSize: "13px", lineHeight: "1.4", margin: 0 }}>
-              ประมวลผลยอดนิสิตรับเข้า และ ยอดนิสิตคงอยู่แพร้อมกราฟวิเคราะห์สัดส่วน
+              ประมวลผลยอดนิสิตรับเข้า และ ยอดนิสิตคงอยู่พร้อมกราฟวิเคราะห์สัดส่วน
             </div>
           </div>
         </Header>
@@ -230,7 +229,7 @@ function StudentPage() {
                   <Col xs={24} md={12}>
                     <Card bordered={false} style={{ borderRadius: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.03)", background: "linear-gradient(135deg, #f6ffed 0%, #e6f7ff 100%)" }}>
                       <Row align="middle">
-                        <Col span={16}>
+                        <Col span={24}>
                           <Statistic 
                             title={<span style={{ color: "#555", fontWeight: 500 }}>อัตราการคงอยู่เฉลี่ย (Retention Rate)</span>} 
                             value={studentStats.retentionRate} 
@@ -238,11 +237,6 @@ function StudentPage() {
                             valueStyle={{ color: '#1890ff', fontWeight: 700, fontSize: 26 }}
                             suffix="%" 
                           />
-                        </Col>
-                        <Col span={8} style={{ textAlign: "right" }}>
-                          <div style={{ background: "#1890ff", color: "white", padding: "6px 12px", borderRadius: 20, fontSize: 11, display: "inline-block" }}>
-                            <ArrowUpOutlined /> ดัชนีหลัก
-                          </div>
                         </Col>
                       </Row>
                     </Card>
@@ -394,7 +388,12 @@ function StudentPage() {
                       columns={columns} 
                       dataSource={filteredRetainTable} 
                       rowKey={(record, idx) => `student-pie-page-${idx}`}
-                      pagination={{ pageSize: 5, showTotal: (total) => `รวม ${total} รายการ` }}
+                      pagination={{ 
+                        defaultPageSize: 5, // กลับมาแสดง 5 แถวให้สั้นกะทัดรัดเหมือนเดิมแล้วค่ะ
+                        pageSizeOptions: ["10", "20", "30"], // ตัวเลือกเมนูมีแค่ 10, 20, 30 ไม่มี 50, 100 แล้ว
+                        showSizeChanger: true,
+                        showTotal: (total) => `รวม ${total} รายการ` 
+                      }}
                       bordered
                       scroll={{ x: true }}
                     />
