@@ -1,4 +1,3 @@
-// ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
 import { Layout, Table, Button, Card, Empty, Input } from "antd";
 import Sidebar from "../components/Sidebar";
 import { useMemo, useState, useEffect } from "react";
@@ -80,6 +79,7 @@ function Dashboard() {
     return match ? match[0] : String(yearStr).trim();
   };
 
+  // 💡 ตัวแปรดึงข้อมูลนิสิตคงอยู่จากไฟล์หลักตัวเดียว
   const retain = useMemo(() => {
     if (!dashboardData) return [];
     return dashboardData["นิสิตคงอยู่"] || dashboardData["ข้อมูลนิสิตคงอยู่"] || dashboardData["จำนวนนิสิตคงอยู่"] || [];
@@ -151,7 +151,7 @@ function Dashboard() {
     lecturers = teacher.filter(item => !appliedFilters.major || cleanString(cleanMajorName(item["ชื่อสาขา"])) === cleanString(appliedFilters.major)).length;
   }
 
-  // 📊 กรองแผนภูมิด้วยเงื่อนไข "ปีการศึกษาที่รับเข้า" ร่วมกับ "ปีที่สำรวจ" พร้อมกันตามข้อมูลไฟล์ดิบ
+  // 📊 กรองแผนภูมิด้วยเงื่อนไข "ปีการศึกษาที่รับเข้า" ร่วมกับ "ปีที่สำรวจ" พร้อมกันตามข้อมูลไฟล์หลักตัวเดียว
   const pairedGraphData = useMemo(() => {
     if (retain.length === 0 || !graphEntryYear || !graphSurveyYear) return [];
     const grouped = {};
@@ -159,6 +159,7 @@ function Dashboard() {
       const itemEntryYear = extractYear(item["ปีการศึกษาที่รับเข้า"] || item["ปีการศึกษา"]);
       const itemSurveyYear = extractYear(item["ปีที่สำรวจ"]);
       
+      // กรองเงื่อนไขปีการศึกษาและปีสำรวจจากชุดไฟล์เดียว
       if (itemEntryYear !== graphEntryYear || itemSurveyYear !== graphSurveyYear) return;
 
       const rawName = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
@@ -177,7 +178,7 @@ function Dashboard() {
     return Object.values(grouped).sort((a, b) => b.earlyTerm - a.earlyTerm);
   }, [retain, graphEntryYear, graphSurveyYear]);
 
-  // 📋 กรองตารางสรุปด้านล่างด้วยปีการศึกษา
+  // 📋 กรองตารางสรุปด้านล่างด้วยปีการศึกษาจากชุดไฟล์เดียวเช่นกัน
   const pairedTableData = useMemo(() => {
     if (retain.length === 0 || !tableYear) return [];
     const grouped = {};
@@ -211,7 +212,6 @@ function Dashboard() {
     <Layout style={{ minHeight: "100vh" }}>
       <Sidebar />
       <Layout>
-        {/* ส่วนหัวข้อ Header: ปรับระยะห่าง gap: "4px" และคุม lineHeight เพื่อความเรียบร้อย โปร่งตาระดับพรีเมียม */}
         <Header style={{ background: "white", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", height: "auto", borderBottom: "1px solid #f0f0f0" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600", color: "#1f1f1f", lineHeight: "1.2" }}>
@@ -225,7 +225,7 @@ function Dashboard() {
 
         <Content style={{ padding: "24px 32px 32px 32px", background: "#f5f5f5" }}>
           
-          {/* FILTER ZONE Main - อัปเดตช่องค้นหาหลักให้สวยหรูผ่านคอมโพเนนต์ <Input /> ของ Antd */}
+          {/* FILTER ZONE Main */}
           <div style={{ background: "#fff", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
             <div style={{ marginBottom: 6, fontWeight: 600 }}>ค้นหาข้อมูล</div>
             <Input 
