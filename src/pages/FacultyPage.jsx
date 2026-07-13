@@ -1,3 +1,4 @@
+// ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
 import { Layout, Table, Button, Card, Row, Col, Statistic, Empty, Input } from "antd";
 import Sidebar from "../components/Sidebar";
 import { useMemo, useState, useEffect } from "react";
@@ -78,7 +79,7 @@ function FacultyPage() {
     });
   }, [rawData, selectedMajor, tableMajorFilter, searchText]);
 
-  // 5. คำนวณสถิติภาพรวม (KPI) - ปรับลำดับการดักคำเพื่อไม่ให้ รศ. และ ผศ. ไหลไปรวมกับ ศ.
+  // 5. คำนวณสถิติภาพรวม (KPI)
   const stats = useMemo(() => {
     const total = mainFilteredData.length;
     let phdCount = 0;
@@ -90,7 +91,6 @@ function FacultyPage() {
       const position = String(item["ตำแหน่งทางวิชาการ"] || item["ตำแหน่งวิชาการ"] || item["ตำแหน่ง"] || "").trim();
       const name = String(item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "");
 
-      // ตรวจสอบปริญญาเอก
       if (
         degree.includes("ปริญญาเอก") || 
         degree.toLowerCase().includes("ph.d") || 
@@ -107,7 +107,6 @@ function FacultyPage() {
         masterCount++;
       }
 
-      // ตรวจสอบตำแหน่งทางวิชาการ (สกัดกลุ่มที่มีคำว่า "รศ" และ "ผศ" ออกก่อนตรวจ "ศ")
       if (
         position.includes("รองศาสตราจารย์") || position.includes("รศ") || name.includes("รศ") ||
         position.includes("ผู้ช่วยศาสตราจารย์") || position.includes("ผศ") || name.includes("ผศ") ||
@@ -120,7 +119,7 @@ function FacultyPage() {
     return { total, phdCount, masterCount, academicPositionCount };
   }, [mainFilteredData]);
 
-  // 6. เตรียมข้อมูลตำแหน่งเพื่อไปวาดกราฟแท่ง - เช็คจากคำยาว/จำเพาะเจาะจง (รศ. / ผศ.) ก่อน เพื่อป้องกัน "ศ." ไปแย่งนับ
+  // 6. เตรียมข้อมูลตำแหน่งเพื่อไปวาดกราฟแท่ง
   const chartData = useMemo(() => {
     if (mainFilteredData.length === 0) return [];
     
@@ -130,7 +129,6 @@ function FacultyPage() {
       const pos = String(item["ตำแหน่งทางวิชาการ"] || item["ตำแหน่งวิชาการ"] || item["ตำแหน่ง"] || "").trim();
       const name = String(item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "");
 
-      // 🌟 สลับนำคำยาวขึ้นก่อนเพื่อความถูกต้องแม่นยำสูงสุด
       if (pos.includes("รองศาสตราจารย์") || pos.includes("รศ.") || name.includes("รศ.")) {
         assocProf++;
       } else if (pos.includes("ผู้ช่วยศาสตราจารย์") || pos.includes("ผศ.") || name.includes("ผศ.")) {
@@ -150,7 +148,6 @@ function FacultyPage() {
     ];
   }, [mainFilteredData]);
 
-  // นิยามคอลัมน์ของตารางข้อมูลอาจารย์
   const columns = [
     { 
       title: "ลำดับ", 
@@ -204,11 +201,15 @@ function FacultyPage() {
     <Layout style={{ minHeight: "100vh" }}>
       <Sidebar />
       <Layout>
-        {/* HEADER ZONE */}
+        {/* ส่วนหัวข้อ (Header): จัดระเบียบระยะห่าง gap: "4px" และความสูงบรรทัด ให้กระชับ สวยงาม สบายตาลงตัวพอดีค่ะ */}
         <Header style={{ background: "white", padding: "16px 24px", height: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f0f0f0" }}>
-          <div>
-            <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "600", color: "#1f1f1f" }}>ข้อมูลอาจารย์ประจำสาขาวิชา</h2>
-            <div style={{ color: "#8c8c8c", fontSize: "13px" }}>บริหารจัดการข้อมูล คุณวุฒิการศึกษา และตำแหน่งทางวิชาการของบุคลากรสายวิชาการ</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600", color: "#1f1f1f", lineHeight: "1.2" }}>
+              ข้อมูลอาจารย์ประจำสาขาวิชา
+            </h2>
+            <div style={{ color: "#8c8c8c", fontSize: "13px", lineHeight: "1.4", margin: 0 }}>
+              บริหารจัดการข้อมูล คุณวุฒิการศึกษา และตำแหน่งทางวิชาการของบุคลากรสายวิชาการ
+            </div>
           </div>
         </Header>
 
@@ -218,7 +219,7 @@ function FacultyPage() {
           <div style={{ background: "#fff", padding: 20, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             <Row gutter={[16, 16]} align="bottom">
               <Col xs={24} md={10}>
-                <div style={{ marginBottom: 6, fontWeight: 600 }}>เลือกคณะ / สาขาวิชา</div>
+                <div style={{ marginBottom: 6, fontWeight: 600 }}>สาขาวิชา</div>
                 <select 
                   value={selectedMajor} 
                   onChange={(e) => {
@@ -227,12 +228,12 @@ function FacultyPage() {
                   }} 
                   style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d9d9d9", outline: "none" }}
                 >
-                  <option value="">แสดงทุกสาขาวิชา</option>
+                  <option value="">ทั้งหมด</option>
                   {majors.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </Col>
               <Col xs={24} md={14}>
-                <div style={{ marginBottom: 6, fontWeight: 600 }}>ค้นหาชื่ออาจารย์</div>
+                <div style={{ marginBottom: 6, fontWeight: 600 }}>ค้นหารายชื่ออาจารย์</div>
                 <Input 
                   placeholder="พิมพ์ชื่อหรือนามสกุลที่ต้องการค้นหา..." 
                   prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />} 
@@ -296,7 +297,7 @@ function FacultyPage() {
 
               {/* GRAPH ZONE */}
               <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                <h3 style={{ marginBottom: 20, fontWeight: 600, fontSize: 15 }}>📊 แผนภูมิแสดงจำนวนอาจารย์แยกตามตำแหน่งทางวิชาการ (กรองตามเงื่อนไขหลัก)</h3>
+                <h3 style={{ marginBottom: 20, fontWeight: 600, fontSize: 15 }}>📊 แผนภูมิแสดงจำนวนอาจารย์แยกตามตำแหน่งทางวิชาการ </h3>
                 <div style={{ height: 350 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 10 }}>
@@ -328,7 +329,7 @@ function FacultyPage() {
                       onChange={(e) => setTableMajorFilter(e.target.value)} 
                       style={{ background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#1890ff", cursor: "pointer", outline: "none" }}
                     >
-                      <option value="">{selectedMajor ? `ตามตัวกรองหลัก (${selectedMajor})` : "แสดงทุกสาขาวิชา"}</option>
+                      <option value="">{selectedMajor ? `ตามตัวกรองหลัก (${selectedMajor})` : "สาขาทั้งหมด"}</option>
                       {majors.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
