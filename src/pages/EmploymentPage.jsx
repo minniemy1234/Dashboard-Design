@@ -1,4 +1,3 @@
-// ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
 import { Layout, Table, Button, Progress, Card, Empty } from "antd";
 import Sidebar from "../components/Sidebar";
 import { useMemo, useState, useEffect } from "react";
@@ -130,7 +129,6 @@ function EmploymentPage() {
   const [appliedFilters, setAppliedFilters] = useState({ year: "", major: "" });
   const [rawData, setRawData] = useState([]);
   const [staticDataForTable, setStaticDataForTable] = useState([]); 
-  const [uploadedChartRaw, setUploadedChartRaw] = useState([]);
 
   const COLORS_NAVY_THEME = ["#003366", "#3b6290", "#5b84b1", "#76a2ca", "#a6c8e0", "#c1daf0"];
 
@@ -145,12 +143,6 @@ function EmploymentPage() {
       
       setRawData(empData);
       setStaticDataForTable(empData);
-
-      if (parsed["employment_chart_data"] && parsed["employment_chart_data"].length > 0) {
-        setUploadedChartRaw(parsed["employment_chart_data"]);
-      } else {
-        setUploadedChartRaw([]);
-      }
     }
   }, []);
 
@@ -266,22 +258,12 @@ function EmploymentPage() {
     const totalDivisor = totalRespondents - totalExcluded;
     const finalRate = totalDivisor > 0 ? (totalDividend / totalDivisor) * 100 : 0;
 
-    const finalPrivate = totalPrivate || 479;
-    const finalOther = totalOther || 29;
-    const finalState = totalState || 6;
-    const finalInter = totalInter || 2;
-    const finalSelf = totalSelfEmployed || 33;
-    const finalGov = totalGov || 11;
-
-    const finalMatch = totalMatch || 414;
-    const finalNonMatch = totalNonMatch || 144;
-
     return {
       respondents: totalRespondents, employedStaff: totalEmployedStaff, selfEmployed: totalSelfEmployed,
       studyMore: totalStudyMore, hasJobBefore: totalHasJobBefore, ordain: totalOrdain, military: totalMilitary,
       rate: Number(finalRate.toFixed(2)),
-      gov: finalGov, state: finalState, privateOrg: finalPrivate, inter: finalInter, otherOrg: finalOther,
-      match: finalMatch, nonMatch: finalNonMatch
+      gov: totalGov, state: totalState, privateOrg: totalPrivate, inter: totalInter, otherOrg: totalOther,
+      match: totalMatch, nonMatch: totalNonMatch
     };
   }, [processedData]);
 
@@ -303,16 +285,14 @@ function EmploymentPage() {
     return { orgChart, matchChart };
   }, [totals]);
 
-  // 🌟 ปรับปรุงการแสดงสลากข้อความ: ให้โชว์เฉพาะตัวเลขและเปอร์เซ็นต์ (เช่น 479คน (85.8%)) 
   const renderResponsiveLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, value, percent, index }) => {
     const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 22; // รัศมีขยับสลาก
+    const radius = outerRadius + 22; 
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     let y = cy + radius * Math.sin(-midAngle * RADIAN);
     const textAnchor = x > cx ? "start" : "end";
     const pctVal = (percent * 100).toFixed(1);
 
-    // ปรับระดับดิ่งช่องไฟขั้นบันไดกรณีกลุ่มกราฟขนาดเล็กกองรวมกันฝั่งขวาล่าง
     if (midAngle < -5 && midAngle > -95) {
       if (index === 1) y -= 4;   
       if (index === 2) y += 12;  
@@ -346,21 +326,29 @@ function EmploymentPage() {
     );
   };
 
+  // 🔥 [จุดแก้ไขหลัก] ทำการดึงผลรวมที่คำนวณแบบ Real-time จากสูตรข้อมูลดิบภาวะการมีงานทำมาโยงพล็อตกราฟแท่งทันที
   const dynamicChartData = useMemo(() => {
-    if (!uploadedChartRaw || uploadedChartRaw.length === 0) return [];
-    const firstRow = uploadedChartRaw[0];
-    const colorPalette = ["#00b4d8", "#0077b6", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51"];
+    if (processedData.length === 0) return [];
+    const colorPalette = ["#0050b3", "#3b6290", "#00b4d8", "#5b84b1", "#76a2ca", "#a6c8e0"];
 
-    const formatted = Object.keys(firstRow).map((key) => ({
-      name: key,
-      จำนวนคน: Number(firstRow[key] || 0)
-    }));
+    const list = [
+      { name: "หน่วยงานเอกชน", จำนวนคน: totals.privateOrg },
+      { name: "หน่วยงานรัฐ", จำนวนคน: totals.gov },
+      { name: "ธุรกิจส่วนตัว/อิสระ", จำนวนคน: totals.selfEmployed },
+      { name: "หน่วยงานรัฐวิสาหกิจ", จำนวนคน: totals.state },
+      { name: "องค์กรอื่นๆ", จำนวนคน: totals.otherOrg },
+      { name: "องค์การต่างประเทศ", จำนวนคน: totals.inter }
+    ];
 
-    return formatted.sort((a, b) => b.จำนวนคน - a.จำนวนคน).map((item, index) => ({
-      ...item,
-      color: colorPalette[index % colorPalette.length]
-    }));
-  }, [uploadedChartRaw]);
+    // กรองเอาเฉพาะอันที่มีจำนวนคน > 0 มาเรียงลำดับจากมากไปน้อย
+    return list
+      .filter(item => item.จำนวนคน > 0)
+      .sort((a, b) => b.จำนวนคน - a.จำนวนคน)
+      .map((item, index) => ({
+        ...item,
+        color: colorPalette[index % colorPalette.length]
+      }));
+  }, [totals, processedData]);
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -456,7 +444,7 @@ function EmploymentPage() {
             </div>
           </div>
 
-          {/* MIDDLE PROGRESS COGNITIVE ZONE */}
+          {/* MIDDLE PROGRESS ZONE */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
             <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
               <h4 style={{ color: "#1e3a8a", marginBottom: 4, fontSize: 14, fontWeight: 600 }}>จำนวนบัณฑิตระดับปริญญาตรีที่ได้งานทำ</h4>
@@ -475,10 +463,10 @@ function EmploymentPage() {
 
             <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #e2e8f0", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
               <h4 style={{ color: "#1e3a8a", marginBottom: 4, fontSize: 14, fontWeight: 600 }}>จำนวนบัณฑิตระดับปริญญาตรีที่ศึกษาต่อ</h4>
-              <div style={{ color: "#64748b", fontSize: 12, marginBottom: 16 }}>ในระดับบัณิตศึกษา</div>
+              <div style={{ color: "#64748b", fontSize: 12, marginBottom: 16 }}>ในระดับบัณฑศึกษา</div>
               <Progress 
                 type="circle" 
-                percent={totals.reฟspondents > 0 ? Number(((totals.studyMore / totals.respondents) * 100).toFixed(2)) : 0} 
+                percent={totals.respondents > 0 ? Number(((totals.studyMore / totals.respondents) * 100).toFixed(2)) : 0} 
                 strokeColor="#636bfb"
                 size={120}
                 strokeWidth={8}
@@ -516,13 +504,13 @@ function EmploymentPage() {
                 </ResponsiveContainer>
               ) : (
                 <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-                  <Empty description="ยังไม่มีข้อมูลสำหรับแสดงแผนภูมิแท่ง (กรุณาไปที่หน้าจัดการข้อมูล แล้วอัปโหลดไฟล์ที่ช่องเฉพาะที่ 5 ค่ะ)" />
+                  <Empty description="ยังไม่มีข้อมูลสำหรับแสดงแผนภูมิแท่ง (กรุณาอัปโหลดไฟล์ข้อมูลภาวะการมีงานทำเข้าสู่ระบบ)" />
                 </div>
               )}
             </div>
           </div>
 
-          {/* 🌟 3. TWO PIE CHARTS ZONE (ซ่อนชื่อประเภทที่ป้ายชี้ เหลือเพียง ตัวเลข + เปอร์เซ็นต์) */}
+          {/* TWO PIE CHARTS ZONE */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
             
             {/* กราฟฝั่งซ้าย: ทำงานในหน่วยงานหรือองค์กรใด */}
