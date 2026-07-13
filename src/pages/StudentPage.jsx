@@ -1,63 +1,48 @@
-import { Layout, Table, Input, Card, Row, Col, Empty, Alert, Statistic } from "antd";
+// ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
+import { Layout, Table, Button, Progress, Card } from "antd";
 import Sidebar from "../components/Sidebar";
 import { useMemo, useState, useEffect } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  LabelList // 🌟 เพิ่มการอิมพอร์ต LabelList เพื่อแสดงตัวเลขบนแท่งกราฟ
+} from "recharts";
 import { 
-  TeamOutlined, 
-  UserAddOutlined, 
+  SearchOutlined, 
+  SafetyCertificateOutlined, 
   TrophyOutlined, 
-  SearchOutlined,
-  FilterOutlined,
-  CheckCircleOutlined,
-  InfoCircleOutlined,
-  ArrowUpOutlined,
-  DashboardOutlined,
-  HourglassOutlined
+  VerifiedOutlined,
+  ReadOutlined
 } from "@ant-design/icons";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 const { Header, Content } = Layout;
 
-const renderActiveShape = (props) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-  return (
-    <g>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius - 2}
-        outerRadius={outerRadius + 6}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-        style={{ filter: "drop-shadow(0px 4px 8px rgba(0,0,0,0.15))", cursor: "pointer" }}
-      />
-    </g>
-  );
-};
-
-function StudentPage() {
-  const [selectedMajor, setSelectedMajor] = useState("");
+function GraduateQualityPage() {
   const [selectedYear, setSelectedYear] = useState("");
-  const [searchText, setSearchText] = useState("");
-  const [dashboardData, setDashboardData] = useState(null);
-  const [activeIndex, setActiveIndex] = useState(null);
+  const [selectedMajor, setSelectedMajor] = useState("");
+  const [appliedFilters, setAppliedFilters] = useState({ year: "", major: "" });
+  const [rawData, setRawData] = useState([]);
+  const [tableYearFilter, setTableYearFilter] = useState("");
 
+  // 1. โหลดข้อมูลจริงจาก localStorage
   useEffect(() => {
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
-      setDashboardData(JSON.parse(stored));
+      const parsed = JSON.parse(stored);
+      const evalData = parsed["ผลการประเมินคุณภาพบัณฑิต"] || [];
+      setRawData(evalData);
     }
   }, []);
 
-  const cleanMajorName = (majorStr) => {
-    if (!majorStr) return "";
-    let name = String(majorStr).replace(/\n/g, ' ').trim();
-    if (name.startsWith("สาขาวิชา")) {
-      name = name.replace("สาขาวิชา", "").trim();
-    } else if (name.startsWith("สาขา")) {
-      name = name.replace("สาขา", "").trim();
-    }
-    return name;
+  const cleanString = (str) => {
+    if (!str) return "";
+    return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
   };
 
   const extractYear = (yearStr) => {
@@ -66,111 +51,124 @@ function StudentPage() {
     return match ? match[0] : String(yearStr).trim();
   };
 
-  const cleanString = (str) => {
-    if (!str) return "";
-    return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
+  // 2. ดึงรายการ ปีการศึกษา และ สาขาวิชา ทั้งหมดมาทำ Dropdown
+  const years = useMemo(() => {
+    const list = rawData.map(item => extractYear(item["ปีการศึกษา"]));
+    return [...new Set(list)].filter(Boolean).sort().reverse();
+  }, [rawData]);
+
+  const majors = useMemo(() => {
+    const list = rawData.map(item => String(item["ชื่อสาขา"] || "").replace(/\n/g, ' ').trim());
+    return [...new Set(list)].filter(Boolean).sort();
+  }, [rawData]);
+
+  const handleApplyFilters = () => {
+    setAppliedFilters({ year: selectedYear, major: selectedMajor });
   };
 
-  const retainData = dashboardData?.["นิสิตคงอยู่"] || dashboardData?.["ข้อมูลนิสิตคงอยู่"] || dashboardData?.["จำนวนนิสิตคงอยู่"] || [];
-  const employmentData = dashboardData?.["ภาวะการมีงานทำ"] || [];
+  // 3. จัดกลุ่มข้อมูลสำหรับคำนวณ KPI และ กราฟแท่ง
+  const processedData = useMemo(() => {
+    const groups = {};
 
-  const majorsList = useMemo(() => {
-    const list = retainData.map(item => cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]));
-    return [...new Set(list)].filter(Boolean).sort();
-  }, [retainData]);
+    rawData.forEach(item => {
+      const year = extractYear(item["ปีการศึกษา"]);
+      const majorRaw = String(item["ชื่อสาขา"] || "").replace(/\n/g, ' ').trim();
+      const majorClean = cleanString(item["ชื่อสาขา"]);
+      const topic = item["หัวข้อ"] || "";
+      const score = Number(item["ค่าเฉลี่ยความพึงพอใจ"] || 0);
 
-  const yearsList = useMemo(() => {
-    const list = retainData.map(item => extractYear(item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"] || item["ปีการศึกษา"]));
-    return [...new Set(list)].filter(Boolean).sort();
-  }, [retainData]);
+      if (appliedFilters.year && year !== appliedFilters.year) return;
+      if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return;
 
-  const filteredRetainTable = useMemo(() => {
-    return retainData.filter(item => {
-      const itemMajor = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-      const itemYear = extractYear(item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"] || item["ปีการศึกษา"]);
-      const itemTerm = String(item["ภาคเรียน"] || item["ภาคการศึกษา"] || "").trim();
-      
-      const majorMatch = !selectedMajor || itemMajor === selectedMajor;
-      const yearMatch = !selectedYear || itemYear === selectedYear;
-      const termMatch = itemTerm === "ปลาย"; 
-      const searchMatch = !searchText || JSON.stringify(item).toLowerCase().includes(searchText.toLowerCase());
-
-      return majorMatch && yearMatch && termMatch && searchMatch;
-    });
-  }, [retainData, selectedMajor, selectedYear, searchText]);
-
-  const studentStats = useMemo(() => {
-    let totalAdmitted = 0;
-    let totalRetained = 0;
-
-    retainData.forEach(item => {
-      const itemMajor = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-      const itemYear = extractYear(item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"] || item["ปีการศึกษา"]);
-      const itemTerm = String(item["ภาคเรียน"] || item["ภาคการศึกษา"] || "").trim();
-      const amt = Number(item["จำนวน"] || item["รวม"] || 0);
-
-      const majorMatch = !selectedMajor || cleanString(itemMajor) === cleanString(selectedMajor);
-      const yearMatch = !selectedYear || itemYear === selectedYear;
-
-      if (majorMatch && yearMatch) {
-        if (itemTerm === "ต้น") totalAdmitted += amt;
-        if (itemTerm === "ปลาย") totalRetained += amt;
+      const key = `${year}-${majorClean}`;
+      if (!groups[key]) {
+        groups[key] = { year, major: majorRaw, d1: 0, d2: 0, d3: 0, d4: 0, d5: 0, total: 0 };
       }
+
+      if (topic.includes("คุณธรรม")) groups[key].d1 = score;
+      else if (topic.includes("ความรู้")) groups[key].d2 = score;
+      else if (topic.includes("ทักษะทางปัญญา")) groups[key].d3 = score;
+      else if (topic.includes("ความสัมพันธ์")) groups[key].d4 = score;
+      else if (topic.includes("วิเคราะห์เชิงตัวเลข")) groups[key].d5 = score;
+      else if (topic.includes("รวม")) groups[key].total = score;
     });
 
-    let gradsByYear = 0;
-    let gradsByCriteria = 0;
+    return Object.values(groups);
+  }, [rawData, appliedFilters]);
 
-    employmentData.forEach(item => {
-      const itemMajor = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"]);
-      const itemYear = extractYear(item["ปีการศึกษา"]);
+  // 4. จัดกลุ่มข้อมูลสำหรับตารางด้านล่าง
+  const tableData = useMemo(() => {
+    const groups = {};
 
-      const majorMatch = !selectedMajor || cleanString(itemMajor) === cleanString(selectedMajor);
-      const yearMatch = !selectedYear || itemYear === selectedYear;
+    rawData.forEach(item => {
+      const year = extractYear(item["ปีการศึกษา"]);
+      const majorRaw = String(item["ชื่อสาขา"] || "").replace(/\n/g, ' ').trim();
+      const majorClean = cleanString(item["ชื่อสาขา"]);
+      const topic = item["หัวข้อ"] || "";
+      const score = Number(item["ค่าเฉลี่ยความพึงพอใจ"] || 0);
 
-      if (majorMatch && yearMatch) {
-        gradsByYear += Number(item["ผู้สำเร็จการศึกษา"] || item["จำนวน"] || 0);
-        gradsByCriteria += Number(item["สำเร็จการศึกษาตามเกณฑ์"] || item["ผู้สำเร็จการศึกษา"] || 0);
+      if (tableYearFilter && year !== tableYearFilter) return;
+      if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return;
+
+      const key = `${year}-${majorClean}`;
+      if (!groups[key]) {
+        groups[key] = { year, major: majorRaw, d1: 0, d2: 0, d3: 0, d4: 0, d5: 0, total: 0 };
       }
+
+      if (topic.includes("คุณธรรม")) groups[key].d1 = score;
+      else if (topic.includes("ความรู้")) groups[key].d2 = score;
+      else if (topic.includes("ทักษะทางปัญญา")) groups[key].d3 = score;
+      else if (topic.includes("ความสัมพันธ์")) groups[key].d4 = score;
+      else if (topic.includes("วิเคราะห์เชิงตัวเลข")) groups[key].d5 = score;
+      else if (topic.includes("รวม")) groups[key].total = score;
     });
 
-    const retentionRate = totalAdmitted > 0 ? ((totalRetained / totalAdmitted) * 100).toFixed(2) : "0.00";
+    return Object.values(groups);
+  }, [rawData, tableYearFilter, appliedFilters.major]);
+
+  // 5. คำนวณค่าเฉลี่ยรวมสรุป KPI
+  const stats = useMemo(() => {
+    if (processedData.length === 0) return { d1: "0.00", d2: "0.00", d3: "0.00", d4: "0.00", d5: "0.00", avg: "0.00" };
     
-    // คำนวณร้อยละของผู้สำเร็จการศึกษาตามเกณฑ์ (เทียบกับคนจบทั้งหมดในปีนั้น)
-    const gradCriteriaRate = gradsByYear > 0 ? ((gradsByCriteria / gradsByYear) * 100).toFixed(2) : "0.00";
+    let sumD1 = 0, sumD2 = 0, sumD3 = 0, sumD4 = 0, sumD5 = 0, sumTotal = 0;
+    let countD1 = 0, countD2 = 0, countD3 = 0, countD4 = 0, countD5 = 0, countTotal = 0;
+
+    processedData.forEach(item => {
+      if (item.d1 > 0) { sumD1 += item.d1; countD1++; }
+      if (item.d2 > 0) { sumD2 += item.d2; countD2++; }
+      if (item.d3 > 0) { sumD3 += item.d3; countD3++; }
+      if (item.d4 > 0) { sumD4 += item.d4; countD4++; }
+      if (item.d5 > 0) { sumD5 += item.d5; countD5++; }
+      if (item.total > 0) { sumTotal += item.total; countTotal++; }
+    });
 
     return {
-      admitted: totalAdmitted,
-      retained: totalRetained,
-      graduatesYear: gradsByYear,
-      graduatesCriteria: gradsByCriteria,
-      retentionRate: retentionRate,
-      gradCriteriaRate: gradCriteriaRate
+      d1: countD1 > 0 ? (sumD1 / countD1).toFixed(2) : "0.00",
+      d2: countD2 > 0 ? (sumD2 / countD2).toFixed(2) : "0.00",
+      d3: countD3 > 0 ? (sumD3 / countD3).toFixed(2) : "0.00",
+      d4: countD4 > 0 ? (sumD4 / countD4).toFixed(2) : "0.00",
+      d5: countD5 > 0 ? (sumD5 / countD5).toFixed(2) : "0.00",
+      avg: countTotal > 0 ? (sumTotal / countTotal).toFixed(2) : "0.00"
     };
-  }, [retainData, employmentData, selectedMajor, selectedYear]);
+  }, [processedData]);
 
-  const totalSum = studentStats.admitted + studentStats.retained;
-  const admittedPercent = totalSum > 0 ? ((studentStats.admitted / totalSum) * 100).toFixed(1) : "0";
-  const retainedPercent = totalSum > 0 ? ((studentStats.retained / totalSum) * 100).toFixed(1) : "0";
+  const chartData = [
+    { name: "คุณธรรม", score: Number(stats.d1), color: "#13c2c2" },
+    { name: "ความรู้", score: Number(stats.d2), color: "#13c2c2" },
+    { name: "ปัญญา", score: Number(stats.d3), color: "#13c2c2" },
+    { name: "สัมพันธ์", score: Number(stats.d4), color: "#13c2c2" },
+    { name: "ไอที/วิเคราะห์", score: Number(stats.d5), color: "#13c2c2" },
+  ];
 
-  const pieData = useMemo(() => {
-    return [
-      { name: "นิสิตรับเข้า (ภาคต้น)", value: studentStats.admitted },
-      { name: "นิสิตคงอยู่ (ภาคปลาย)", value: studentStats.retained }
-    ];
-  }, [studentStats.admitted, studentStats.retained]);
-
-  const columns = [
-    { title: "ลำดับ", key: "index", width: 65, align: "center", render: (t, r, idx) => idx + 1 },
-    { title: "ปีที่สำรวจ", key: "year", align: "center", render: (text, record) => record["ปีที่สำรวจ"] || record["ปีการศึกษาที่รับเข้า"] || "-" },
-    { title: "ภาคเรียน", key: "term", align: "center", render: () => "ปลาย" },
-    { title: "สาขาวิชา", key: "major", render: (text, record) => cleanMajorName(record["ชื่อสาขา"] || record["สาขาวิชา"]) },
-    { 
-      title: "จำนวนนิสิตคงอยู่", 
-      key: "amount",
-      align: "right",
-      render: (text, record) => <strong>{Number(record["จำนวน"] || 0).toLocaleString()} คน</strong>
-    },
+  const tableColumns = [
+    { title: "ปีการศึกษา", dataIndex: "year", key: "year", width: 105, align: "center" },
+    { title: "สาขาวิชา", dataIndex: "major", key: "major" },
+    { title: "คุณธรรมจริยธรรม", dataIndex: "d1", key: "d1", align: "center", render: v => <strong>{v || "-"}</strong> },
+    { title: "ด้านความรู้", dataIndex: "d2", key: "d2", align: "center", render: v => <strong>{v || "-"}</strong> },
+    { title: "ทักษะทางปัญญา", dataIndex: "d3", key: "d3", align: "center", render: v => <strong>{v || "-"}</strong> },
+    { title: "ทักษะความสัมพันธ์ฯ", dataIndex: "d4", key: "d4", align: "center", render: v => <strong>{v || "-"}</strong> },
+    { title: "วิเคราะห์เชิงตัวเลข/ไอที/สื่อสาร", dataIndex: "d5", key: "d5", align: "center", render: v => <strong>{v || "-"}</strong> },
+    { title: "คะแนนรวม", dataIndex: "total", key: "total", align: "center", render: v => <span style={{ color: "#13c2c2", fontWeight: "bold" }}>{v || "-"}</span> },
   ];
 
   return (
@@ -179,235 +177,140 @@ function StudentPage() {
       <Layout>
         <Header style={{ background: "white", padding: "16px 24px", height: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f0f0f0" }}>
           <div>
-            <h2 style={{ margin: "0", fontSize: "20px", fontWeight: "600" }}>ข้อมูลสถิตินิสิตประจำคณะ</h2>
-            <div style={{ color: "#8c8c8c", fontSize: "13px" }}>ประมวลผลยอดนิสิตรับเข้า (ภาคต้น) และยอดนิสิตคงอยู่ (ภาคปลาย) พร้อมกราฟวิเคราะห์สัดส่วน</div>
+            <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "600", color: "#1f1f1f", lineHeight: "1.2" }}>ผลการประเมินคุณภาพบัณฑิต</h2>
+            <div style={{ color: "#8c8c8c", fontSize: "13px", lineHeight: "1.4" }}>วิเคราะห์ระดับความพึงพอใจของผู้ใช้บัณฑิตตามกรอบมาตรฐาน TQF 5 ด้าน</div>
           </div>
         </Header>
 
-        <Content style={{ padding: "24px 32px", background: "#f5f5f5" }}>
+        <Content style={{ padding: "16px 32px 32px 32px", background: "#f5f5f5" }}>
           
-          {/* FILTER & SEARCH ZONE */}
-          <div style={{ background: "#fff", padding: 20, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-            <Row gutter={[16, 16]} align="bottom">
-              <Col xs={24} md={8}>
-                <div style={{ marginBottom: 6, fontWeight: 600 }}><FilterOutlined /> สาขาวิชา</div>
-                <select value={selectedMajor} onChange={(e) => setSelectedMajor(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d9d9d9", outline: "none" }}>
-                  <option value="">สาขาวิชาทั้งหมด</option>
-                  {majorsList.map(m => <option key={m} value={m}>{m}</option>)}
+          {/* FILTER SECTION */}
+          <div style={{ background: "#fff", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div>
+                <div style={{ marginBottom: 8, fontWeight: 600 }}>ปีการศึกษา </div>
+                <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9", outline: "none" }}>
+                  <option value="">ทั้งหมด</option>
+                  {years.map(y => <option key={y} value={y}>ปีการศึกษา {y}</option>)}
                 </select>
-              </Col>
-              <Col xs={24} md={6}>
-                <div style={{ marginBottom: 6, fontWeight: 600 }}>ปีการศึกษา</div>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d9d9d9", outline: "none" }}>
-                  <option value="">ปีการศึกษาทั้งหมด</option>
-                  {yearsList.map(y => <option key={y} value={y}>ปี {y}</option>)}
+              </div>
+              <div>
+                <div style={{ marginBottom: 8, fontWeight: 600 }}>สาขาวิชา</div>
+                <select value={selectedMajor} onChange={(e) => setSelectedMajor(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9", outline: "none" }}>
+                  <option value="">ทั้งหมด</option>
+                  {majors.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
-              </Col>
-              <Col xs={24} md={10}>
-                <div style={{ marginBottom: 6, fontWeight: 600 }}>ค้นหาในตารางภาคปลาย</div>
-                <Input placeholder="พิมพ์สิ่งที่ต้องการค้นหา..." prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />} value={searchText} onChange={(e) => setSearchText(e.target.value)} style={{ height: 41, borderRadius: 8 }} allowClear />
-              </Col>
-            </Row>
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+              <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} style={{ borderRadius: 10, background: "#13c2c2", borderColor: "#13c2c2" }}>
+                ประมวลผลข้อมูลประเมิน
+              </Button>
+            </div>
           </div>
 
-          {retainData.length === 0 ? (
-            <Card style={{ borderRadius: 16, padding: "40px 0", textAlign: "center" }}>
-              <Empty description="ไม่พบข้อมูลสถิตินิสิตคงอยู่ กรุณาเช็กไฟล์อัปโหลดในระบบคลัง" />
+          {/* KPI ZONE */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20, marginBottom: 24 }}>
+            <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #b5f5ec" }}>
+              <h3 style={{ color: "#13c2c2", marginBottom: 15 }}>คะแนนเฉลี่ยรวมทุกด้าน</h3>
+              <Progress 
+                type="circle" 
+                percent={(Number(stats.avg) / 5) * 100} 
+                format={() => stats.avg}
+                strokeColor="#13c2c2"
+                size={140}
+              />
+              <div style={{ marginTop: 15, color: "#8c8c8c" }}>จากคะแนนเต็ม 5.00</div>
             </Card>
-          ) : (
-            <>
-              {/* 🌟 EXECUTIVE SUMMARY ZONE - แก้ไขโดยนำ Drop-out ออกเรียบร้อยแล้ว */}
-              <div style={{ marginBottom: 24 }}>
-                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: "#262626", display: "flex", alignItems: "center", gap: 8 }}>
-                  <DashboardOutlined style={{ color: "#1890ff" }} /> สรุปภาพรวมและวิเคราะห์สถิตินิสิต (Executive Summary)
-                </h3>
-                
-                <Row gutter={[16, 16]}>
-                  {/* กล่องซ้าย: Retention Rate */}
-                  <Col xs={24} md={12}>
-                    <Card bordered={false} style={{ borderRadius: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.03)", background: "linear-gradient(135deg, #f6ffed 0%, #e6f7ff 100%)" }}>
-                      <Row align="middle">
-                        <Col span={16}>
-                          <Statistic 
-                            title={<span style={{ color: "#555", fontWeight: 500 }}>อัตราการคงอยู่เฉลี่ย (Retention Rate)</span>} 
-                            value={studentStats.retentionRate} 
-                            precision={2}
-                            valueStyle={{ color: '#1890ff', fontWeight: 700, fontSize: 26 }}
-                            suffix="%" 
-                          />
-                        </Col>
-                        <Col span={8} style={{ textAlign: "right" }}>
-                          <div style={{ background: "#1890ff", color: "white", padding: "6px 12px", borderRadius: 20, fontSize: 11, display: "inline-block" }}>
-                            <ArrowUpOutlined /> ดัชนีหลัก
-                          </div>
-                        </Col>
-                      </Row>
-                    </Card>
-                  </Col>
 
-                  {/* 🌟 กล่องขวา: เปลี่ยนจาก Drop-out เป็น อัตราสำเร็จการศึกษาตามเกณฑ์ หรือเปิดจองไว้ใส่ฟังก์ชันเพิ่ม */}
-                  <Col xs={24} md={12}>
-                    <Card bordered={false} style={{ borderRadius: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.03)" }}>
-                      <Statistic 
-                        title={
-                          <span style={{ color: "#555", fontWeight: 500 }}>
-                            อัตราการสำเร็จการศึกษาตามเกณฑ์ประจำปี
-                          </span>
-                        } 
-                        value={studentStats.gradCriteriaRate} 
-                        precision={2}
-                        valueStyle={{ color: '#52c41a', fontWeight: 700, fontSize: 26 }}
-                        suffix="%" 
-                      />
-                    </Card>
-                  </Col>
-                </Row>
-
-                {/* กล่องคำอธิบายสั้นๆ อัตโนมัติ (ถอดการวิเคราะห์ Drop-out ออกแล้ว) */}
-                <Alert
-                  message={<b style={{ fontSize: "14px" }}>บทวิเคราะห์สถิติสถานะภาพรวม</b>}
-                  description={
-                    <div style={{ fontSize: "12.5px", color: "#434343", marginTop: 4 }}>
-                      จากการประมวลผลฐานข้อมูล {selectedYear ? `ปีการศึกษา ${selectedYear}` : "ทุกปีการศึกษา"} 
-                      {selectedMajor ? ` สาขาวิชา${selectedMajor}` : " ทุกสาขาวิชา"} 
-                      ปัจจุบันพบคณะมีดัชนีอัตราการรักษาสภาพและคงอยู่ของนิสิตสะสมอยู่ที่ <b style={{ color: "#1890ff" }}>{studentStats.retentionRate}%</b> 
-                      และมีสัดส่วนของบัณฑิตที่สำเร็จการศึกษาได้ตรงตามเกณฑ์มาตรฐานระยะเวลาที่หลักสูตรกำหนดคิดเป็น <b style={{ color: "#52c41a" }}>{studentStats.gradCriteriaRate}%</b> ของผู้สำเร็จการศึกษาทั้งหมด
-                    </div>
-                  }
-                  type="info"
-                  showIcon
-                  icon={<InfoCircleOutlined />}
-                  style={{ marginTop: 14, borderRadius: 12, border: "1px solid #bae7ff", backgroundColor: "#e6f7ff" }}
-                />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 15 }}>
+              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec" }}>
+                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 1</div>
+                <h4 style={{ margin: "5px 0", fontSize: 13 }}>คุณธรรมจริยธรรม</h4>
+                <h2>{stats.d1}</h2>
+                <SafetyCertificateOutlined style={{ fontSize: 24, color: "#13c2c2", float: "right", marginTop: -30, opacity: 0.5 }} />
               </div>
+              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec" }}>
+                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 2</div>
+                <h4 style={{ margin: "5px 0", fontSize: 13 }}>ด้านความรู้</h4>
+                <h2>{stats.d2}</h2>
+                <ReadOutlined style={{ fontSize: 24, color: "#13c2c2", float: "right", marginTop: -30, opacity: 0.5 }} />
+              </div>
+              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec" }}>
+                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 3</div>
+                <h4 style={{ margin: "5px 0", fontSize: 13 }}>ทักษะทางปัญญา</h4>
+                <h2>{stats.d3}</h2>
+                <TrophyOutlined style={{ fontSize: 24, color: "#13c2c2", float: "right", marginTop: -30, opacity: 0.5 }} />
+              </div>
+              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec" }}>
+                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 4</div>
+                <h4 style={{ margin: "5px 0", fontSize: 13 }}>ทักษะสัมพันธ์ฯ</h4>
+                <h2>{stats.d4}</h2>
+              </div>
+              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec", gridColumn: "span 2" }}>
+                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 5</div>
+                <h4 style={{ margin: "5px 0", fontSize: 13 }}>วิเคราะห์ตัวเลข/การสื่อสาร/ไอที</h4>
+                <h2>{stats.d5}</h2>
+                <VerifiedOutlined style={{ fontSize: 24, color: "#13c2c2", float: "right", marginTop: -30, opacity: 0.5 }} />
+              </div>
+            </div>
+          </div>
 
-              {/* KPI CARDS ZONE */}
-              <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                <Col xs={24} sm={12} md={6}>
-                  <div style={{ background: "#e6f7ff", padding: 20, borderRadius: 15, border: "1px solid #91d5ff", position: "relative", minHeight: 130 }}>
-                    <div style={{ color: "#8c8c8c", fontSize: 11 }}>ภาคต้น</div>
-                    <h4 style={{ margin: "4px 0", fontSize: 14, color: "#0050b3" }}>นิสิตรับเข้าศึกษา</h4>
-                    <h2 style={{ margin: 0, fontSize: 26, fontWeight: "bold", color: "#0050b3" }}>{studentStats.admitted.toLocaleString()} <span style={{ fontSize: 13, fontWeight: "normal", color: "#8c8c8c" }}>คน</span></h2>
-                    <UserAddOutlined style={{ fontSize: 28, color: "#1890ff", position: "absolute", right: 20, bottom: 20, opacity: 0.22 }} />
-                  </div>
-                </Col>
-
-                <Col xs={24} sm={12} md={6}>
-                  <div style={{ background: "#f6ffed", padding: 20, borderRadius: 15, border: "1px solid #b7eb8f", position: "relative", minHeight: 130 }}>
-                    <div style={{ color: "#8c8c8c", fontSize: 11 }}>ภาคปลาย</div>
-                    <h4 style={{ margin: "4px 0", fontSize: 14, color: "#237804" }}>นิสิตคงอยู่รวม</h4>
-                    <h2 style={{ margin: 0, fontSize: 26, fontWeight: "bold", color: "#237804" }}>{studentStats.retained.toLocaleString()} <span style={{ fontSize: 13, fontWeight: "normal", color: "#8c8c8c" }}>คน</span></h2>
-                    <TeamOutlined style={{ fontSize: 28, color: "#52c41a", position: "absolute", right: 20, bottom: 20, opacity: 0.22 }} />
-                  </div>
-                </Col>
-
-                <Col xs={24} sm={12} md={6}>
-                  <div style={{ background: "#fffbe6", padding: 20, borderRadius: 15, border: "1px solid #ffe58f", position: "relative", minHeight: 130 }}>
-                    <div style={{ color: "#8c8c8c", fontSize: 11 }}>ภาวะการมีงานทำประจำปี</div>
-                    <h4 style={{ margin: "4px 0", fontSize: 14, color: "#ad6800" }}>สำเร็จการศึกษา (ตามปี)</h4>
-                    <h2 style={{ margin: 0, fontSize: 26, fontWeight: "bold", color: "#ad6800" }}>{studentStats.graduatesYear.toLocaleString()} <span style={{ fontSize: 13, fontWeight: "normal", color: "#8c8c8c" }}>คน</span></h2>
-                    <TrophyOutlined style={{ fontSize: 28, color: "#faad14", position: "absolute", right: 20, bottom: 20, opacity: 0.22 }} />
-                  </div>
-                </Col>
-
-                <Col xs={24} sm={12} md={6}>
-                  <div style={{ background: "#f9f0ff", padding: 20, borderRadius: 15, border: "1px solid #d3adf7", position: "relative", minHeight: 130 }}>
-                    <div style={{ color: "#8c8c8c", fontSize: 11 }}>ภาวะการมีงานทำประจำปี</div>
-                    <h4 style={{ margin: "4px 0", fontSize: 14, color: "#531dab" }}>สำเร็จการศึกษา (ตามเกณฑ์)</h4>
-                    <h2 style={{ margin: 0, fontSize: 26, fontWeight: "bold", color: "#531dab" }}>{studentStats.graduatesCriteria.toLocaleString()} <span style={{ fontSize: 13, fontWeight: "normal", color: "#8c8c8c" }}>คน</span></h2>
-                    <CheckCircleOutlined style={{ fontSize: 28, color: "#722ed1", position: "absolute", right: 20, bottom: 20, opacity: 0.22 }} />
-                  </div>
-                </Col>
-              </Row>
-
-              {/* VISUAL ZONE: PIE CHART & TABLE SIDE-BY-SIDE */}
-              <Row gutter={[20, 20]}>
-                {/* ฝั่งซ้าย: กราฟวงกลมดีไซน์โมเดิร์น */}
-                <Col xs={24} lg={9}>
-                  <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 4px 16px rgba(0,0,0,0.03)", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#262626" }}>สัดส่วน รับเข้า (ต้น) VS คงอยู่ (ปลาย)</h3>
-                      <div style={{ color: "#8c8c8c", fontSize: 12, marginTop: 4 }}>เปรียบเทียบโครงสร้างจำนวนนิสิตภายในปี</div>
-                    </div>
-                    
-                    <div style={{ height: 230, position: "relative", margin: "10px 0" }}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie 
-                            activeIndex={activeIndex}
-                            activeShape={renderActiveShape}
-                            data={pieData} 
-                            dataKey="value" 
-                            nameKey="name" 
-                            innerRadius={65} 
-                            outerRadius={88} 
-                            paddingAngle={5} 
-                            cx="50%" 
-                            cy="50%"
-                            onMouseEnter={(data, index) => setActiveIndex(index)}
-                            onMouseLeave={() => setActiveIndex(null)}
-                          >
-                            <Cell fill="#00b4d8" style={{ outline: "none" }} />
-                            <Cell fill="#2a9d8f" style={{ outline: "none" }} />
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ borderRadius: 8, border: "none", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}
-                            formatter={(value) => `${Number(value).toLocaleString()} คน`} 
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      
-                      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
-                        <span style={{ fontSize: 12, color: "#8c8c8c", block: "true" }}>สถิติรวม</span>
-                        <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#262626" }}>{totalSum.toLocaleString()}</h3>
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid #f0f0f0", paddingTop: 16, fontSize: 13 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px", borderRadius: 8, backgroundColor: activeIndex === 0 ? "#f0f9ff" : "transparent", transition: "all 0.2s" }}>
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <span style={{ display: "inline-block", width: 10, height: 10, background: "#00b4d8", borderRadius: "50%", marginRight: 10 }}></span>
-                          <span style={{ color: "#434343" }}>รับเข้าศึกษา (ภาคต้น)</span>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <strong style={{ color: "#262626" }}>{studentStats.admitted.toLocaleString()} คน</strong>
-                          <span style={{ fontSize: 11, color: "#8c8c8c", marginLeft: 8 }}>({admittedPercent}%)</span>
-                        </div>
-                      </div>
-                      
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px", borderRadius: 8, backgroundColor: activeIndex === 1 ? "#f6ffed" : "transparent", transition: "all 0.2s" }}>
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <span style={{ display: "inline-block", width: 10, height: 10, background: "#2a9d8f", borderRadius: "50%", marginRight: 10 }}></span>
-                          <span style={{ color: "#434343" }}>นิสิตคงอยู่จริง (ภาคปลาย)</span>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <strong style={{ color: "#262626" }}>{studentStats.retained.toLocaleString()} คน</strong>
-                          <span style={{ fontSize: 11, color: "#8c8c8c", marginLeft: 8 }}>({retainedPercent}%)</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Col>
-
-                {/* ฝั่งขวา: ตารางรายละเอียดข้อมูล */}
-                <Col xs={24} lg={15}>
-                  <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-                    <div style={{ marginBottom: 16 }}>
-                      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#262626" }}>ตารางแจกแจงจำนวนนิสิตคงอยู่ประจำปี (คัดเฉพาะข้อมูลภาคปลาย)</h3>
-                    </div>
-                    <Table 
-                      columns={columns} 
-                      dataSource={filteredRetainTable} 
-                      rowKey={(record, idx) => `student-pie-page-${idx}`}
-                      pagination={{ pageSize: 5, showTotal: (total) => `รวม ${total} รายการ` }}
-                      bordered
-                      scroll={{ x: true }}
+          {/* GRAPH */}
+          <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24 }}>
+            <h3 style={{ marginBottom: 20 }}>แผนภูมิเปรียบเทียบค่าเฉลี่ยรายด้าน (TQF)</h3>
+            <div style={{ height: 350 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 5]} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{fill: '#f0fdfa'}} />
+                  <Bar dataKey="score" radius={[8, 8, 0, 0]} barSize={50}>
+                    {/* 🌟 โซนที่เพิ่ม: ใช้ LabelList แสดงตัวเลขคะแนนทศนิยม 2 ตำแหน่งเหนือแท่งกราฟ */}
+                    <LabelList 
+                      dataKey="score" 
+                      position="top" 
+                      dy={-10} 
+                      style={{ fill: '#475569', fontSize: 12, fontWeight: 'bold' }} 
+                      formatter={(val) => Number(val).toFixed(2)}
                     />
-                  </div>
-                </Col>
-              </Row>
-            </>
-          )}
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* TABLE ZONE */}
+          <div style={{ background: "white", padding: 24, borderRadius: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+              <h3 style={{ margin: 0 }}>รายละเอียดคะแนนการประเมินแยกตามปีและสาขา</h3>
+              
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f9fafb", padding: "6px 12px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "#4b5563" }}>ปีการศึกษา:</span>
+                <select 
+                  value={tableYearFilter} 
+                  onChange={(e) => setTableYearFilter(e.target.value)} 
+                  style={{ background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#13c2c2", cursor: "pointer", outline: "none" }}
+                >
+                  <option value="">แสดงทุกปี</option>
+                  {years.map((year) => <option key={year} value={year}>ปีการศึกษา {year}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <Table 
+              columns={tableColumns} 
+              dataSource={tableData} 
+              rowKey={(r) => `${r.year}-${r.major}`} 
+              pagination={{ pageSize: 10 }}
+              scroll={{ x: true }}
+              bordered
+            />
+          </div>
 
         </Content>
       </Layout>
@@ -415,4 +318,4 @@ function StudentPage() {
   );
 }
 
-export default StudentPage;
+export default GraduateQualityPage;
