@@ -10,7 +10,9 @@ import {
   FilterOutlined,
   CheckCircleOutlined,
   InfoCircleOutlined,
-  DashboardOutlined
+  DashboardOutlined,
+  ReadOutlined,
+  CrownOutlined
 } from "@ant-design/icons";
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from "recharts";
@@ -99,22 +101,40 @@ function StudentPage() {
     });
   }, [retainData, selectedMajor, selectedYear, searchText]);
 
+  // 📊 คำนวณสถิตินิสิตทั้งหมด รวมทั้งแยก ปริญญาตรี และ ปริญญาโท (รหัสสาขาขึ้นต้นด้วย X)
   const studentStats = useMemo(() => {
     let totalAdmitted = 0;
     let totalRetained = 0;
+
+    let bachelorAdmitted = 0;
+    let bachelorRetained = 0;
+
+    let masterAdmitted = 0;
+    let masterRetained = 0;
 
     retainData.forEach(item => {
       const itemMajor = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
       const itemYear = extractYear(item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"] || item["ปีการศึกษา"]);
       const itemTerm = String(item["ภาคเรียน"] || item["ภาคการศึกษา"] || "").trim();
       const amt = Number(item["จำนวน"] || item["รวม"] || 0);
+      const code = String(item["รหัสสาขา"] || "").trim().toUpperCase();
 
       const majorMatch = !selectedMajor || cleanString(itemMajor) === cleanString(selectedMajor);
       const yearMatch = !selectedYear || itemYear === selectedYear;
 
       if (majorMatch && yearMatch) {
-        if (itemTerm === "ต้น") totalAdmitted += amt;
-        if (itemTerm === "ปลาย") totalRetained += amt;
+        const isMaster = code.startsWith("X");
+
+        if (itemTerm === "ต้น") {
+          totalAdmitted += amt;
+          if (isMaster) masterAdmitted += amt;
+          else bachelorAdmitted += amt;
+        }
+        if (itemTerm === "ปลาย") {
+          totalRetained += amt;
+          if (isMaster) masterRetained += amt;
+          else bachelorRetained += amt;
+        }
       }
     });
 
@@ -140,6 +160,10 @@ function StudentPage() {
     return {
       admitted: totalAdmitted,
       retained: totalRetained,
+      bachelorAdmitted,
+      bachelorRetained,
+      masterAdmitted,
+      masterRetained,
       graduatesYear: gradsByYear,
       graduatesCriteria: gradsByCriteria,
       retentionRate: retentionRate,
@@ -207,8 +231,8 @@ function StudentPage() {
                 </select>
               </Col>
               <Col xs={24} md={10}>
-                <div style={{ marginBottom: 6, fontWeight: 600 }}>ค้นหาในตารางภาคปลาย</div>
-                <Input placeholder="พิมพ์สิ่งที่ต้องการค้นหา..." prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />} value={searchText} onChange={(e) => setSearchText(e.target.value)} style={{ height: 41, borderRadius: 8 }} allowClear />
+                <div style={{ marginBottom: 6, fontWeight: 600 }}>ค้นหาสาขาวิชาหรือปีการศึกษาในตารางภาคปลาย</div>
+                <Input placeholder="ค้นหาสาขาวิชาหรือปีการศึกษา..." prefix={<SearchOutlined style={{ color: "#bfbfbf" }} />} value={searchText} onChange={(e) => setSearchText(e.target.value)} style={{ height: 41, borderRadius: 8 }} allowClear />
               </Col>
             </Row>
           </div>
@@ -273,7 +297,7 @@ function StudentPage() {
               </div>
 
               {/* KPI CARDS ZONE */}
-              <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+              <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col xs={24} sm={12} md={6}>
                   <div style={{ background: "#e6f7ff", padding: 20, borderRadius: 15, border: "1px solid #91d5ff", position: "relative", minHeight: 130 }}>
                     <div style={{ color: "#8c8c8c", fontSize: 11 }}>ภาคต้น</div>
@@ -307,6 +331,75 @@ function StudentPage() {
                     <h4 style={{ margin: "4px 0", fontSize: 14, color: "#531dab" }}>สำเร็จการศึกษา (ตามเกณฑ์)</h4>
                     <h2 style={{ margin: 0, fontSize: 26, fontWeight: "bold", color: "#531dab" }}>{studentStats.graduatesCriteria.toLocaleString()} <span style={{ fontSize: 13, fontWeight: "normal", color: "#8c8c8c" }}>คน</span></h2>
                     <CheckCircleOutlined style={{ fontSize: 28, color: "#722ed1", position: "absolute", right: 20, bottom: 20, opacity: 0.22 }} />
+                  </div>
+                </Col>
+              </Row>
+
+              {/* 🎓 กรอบแสดงจำแนกระดับการศึกษา: ปริญญาตรี VS ปริญญาโท (ต่อจาก KPI) */}
+              <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Col xs={24} md={12}>
+                  <div style={{ background: "#ffffff", padding: 20, borderRadius: 16, border: "1px solid #0284c7", boxShadow: "0 2px 8px rgba(2, 132, 199, 0.08)", position: "relative" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <ReadOutlined style={{ fontSize: 22, color: "#0284c7" }} />
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0369a1" }}>นิสิตระดับปริญญาตรี</h4>
+                          <span style={{ fontSize: 11, color: "#64748b" }}>รหัสสาขาปกติ</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <div style={{ background: "#f0f9ff", padding: 12, borderRadius: 10, border: "1px solid #bae6fd" }}>
+                          <div style={{ fontSize: 11, color: "#0369a1" }}>ภาคต้น (รับเข้า)</div>
+                          <div style={{ fontSize: 22, fontWeight: "bold", color: "#0284c7" }}>
+                            {studentStats.bachelorAdmitted.toLocaleString()} <span style={{ fontSize: 12, fontWeight: "normal" }}>คน</span>
+                          </div>
+                        </div>
+                      </Col>
+                      <Col span={12}>
+                        <div style={{ background: "#f0fdf4", padding: 12, borderRadius: 10, border: "1px solid #bbf7d0" }}>
+                          <div style={{ fontSize: 11, color: "#15803d" }}>ภาคปลาย (คงอยู่)</div>
+                          <div style={{ fontSize: 22, fontWeight: "bold", color: "#16a34a" }}>
+                            {studentStats.bachelorRetained.toLocaleString()} <span style={{ fontSize: 12, fontWeight: "normal" }}>คน</span>
+                          </div>
+                        </div>
+                      </Col>
+                    </Row>
+                  </div>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <div style={{ background: "#ffffff", padding: 20, borderRadius: 16, border: "1px solid #7c3aed", boxShadow: "0 2px 8px rgba(124, 58, 237, 0.08)", position: "relative" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <CrownOutlined style={{ fontSize: 22, color: "#7c3aed" }} />
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#6d28d9" }}>นิสิตระดับปริญญาโท</h4>
+                          <span style={{ fontSize: 11, color: "#64748b" }}>รหัสสาขาขึ้นต้นด้วย X (เช่น XS01)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <div style={{ background: "#f5f3ff", padding: 12, borderRadius: 10, border: "1px solid #ddd6fe" }}>
+                          <div style={{ fontSize: 11, color: "#6d28d9" }}>ภาคต้น (รับเข้า)</div>
+                          <div style={{ fontSize: 22, fontWeight: "bold", color: "#7c3aed" }}>
+                            {studentStats.masterAdmitted.toLocaleString()} <span style={{ fontSize: 12, fontWeight: "normal" }}>คน</span>
+                          </div>
+                        </div>
+                      </Col>
+                      <Col span={12}>
+                        <div style={{ background: "#fdf4ff", padding: 12, borderRadius: 10, border: "1px solid #f5d0fe" }}>
+                          <div style={{ fontSize: 11, color: "#a21caf" }}>ภาคปลาย (คงอยู่)</div>
+                          <div style={{ fontSize: 22, fontWeight: "bold", color: "#c026d3" }}>
+                            {studentStats.masterRetained.toLocaleString()} <span style={{ fontSize: 12, fontWeight: "normal" }}>คน</span>
+                          </div>
+                        </div>
+                      </Col>
+                    </Row>
                   </div>
                 </Col>
               </Row>
@@ -389,8 +482,8 @@ function StudentPage() {
                       dataSource={filteredRetainTable} 
                       rowKey={(record, idx) => `student-pie-page-${idx}`}
                       pagination={{ 
-                        defaultPageSize: 5, // กลับมาแสดง 5 แถวให้สั้นกะทัดรัดเหมือนเดิมแล้วค่ะ
-                        pageSizeOptions: ["10", "20", "30"], // ตัวเลือกเมนูมีแค่ 10, 20, 30 ไม่มี 50, 100 แล้ว
+                        defaultPageSize: 5,
+                        pageSizeOptions: ["10", "20", "30"],
                         showSizeChanger: true,
                         showTotal: (total) => `รวม ${total} รายการ` 
                       }}
