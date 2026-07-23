@@ -13,7 +13,7 @@ import SummaryPage from "./pages/SummaryPage";
 import StudentStatus from "./pages/StudentStatus";
 import EvaluationPage from "./pages/EvaluationPage";
 import GraduateQualityPage from "./pages/GraduateQualityPage";
-
+import CoursePage from "./pages/CoursePage"; // 👈 เพิ่มการ import หน้า CoursePage ที่นี่
 
 function App() {
   return (
@@ -29,40 +29,45 @@ function App() {
           element={<UploadPage />}
         />
 
-       <Route
+        <Route
           path="/employment"
           element={<EmploymentPage />}
-       />
-       <Route
+        />
+        
+        <Route
           path="/students"
           element={<StudentPage />}
-       />
-       <Route
-         path="/faculty"
-         element={<FacultyPage />}
-       />
+        />
+        
+        <Route
+          path="/faculty"
+          element={<FacultyPage />}
+        />
 
-      <Route
-        path="/summary"
-        element={<SummaryPage />}
+        <Route
+          path="/summary"
+          element={<SummaryPage />}
+        />
+        
+        <Route 
+          path="/student-status" 
+          element={<StudentStatus />} 
+        />
 
-      />
-      <Route 
-       path="/student-status" 
-       element={<StudentStatus />} 
-      />
+        <Route 
+          path="/evaluation" 
+          element={<EvaluationPage />} 
+        />
 
-      <Route 
-       path="/evaluation" 
-       element={<EvaluationPage />} 
-      />
+        <Route 
+          path="/graduate-quality" 
+          element={<GraduateQualityPage />}
+        />
 
-      <Route 
-       path="/graduate-quality" 
-       element={<GraduateQualityPage />}
-      />
-
-
+        <Route 
+          path="/courses" 
+          element={<CoursePage />}
+        />
       </Routes>
     </BrowserRouter>
   );
