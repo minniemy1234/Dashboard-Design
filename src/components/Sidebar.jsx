@@ -9,7 +9,8 @@ import {
   BarChartOutlined,
   UsergroupDeleteOutlined,
   LikeOutlined,
-  IdcardOutlined
+  IdcardOutlined,
+  BookOutlined // 👈 เพิ่มไอคอนสำหรับข้อมูลรายวิชา
 } from "@ant-design/icons";
 
 const { Sider } = Layout;
@@ -85,7 +86,6 @@ function Sidebar() {
             icon: <UsergroupDeleteOutlined />,
             label: "ข้อมูลสถานะนิสิต",
           },
-         
           {
             key: "/evaluation",
             icon: <LikeOutlined style={{ color: "#52c41a" }} />,
@@ -93,8 +93,13 @@ function Sidebar() {
           },
           {
             key: "/graduate-quality",
-            icon: <IdcardOutlined style={{ color: "#13c2c2" }} />, // สีฟ้าครามพรีเมียม
+            icon: <IdcardOutlined style={{ color: "#13c2c2" }} />,
             label: "ผลประเมินคุณภาพบัณฑิต",
+          },
+          {
+            key: "/courses", // 👈 เมนูใหม่สำหรับข้อมูลรายวิชา
+            icon: <BookOutlined style={{ color: "#f5b731" }} />,
+            label: "ข้อมูลรายวิชา",
           },
         ]}
       />
