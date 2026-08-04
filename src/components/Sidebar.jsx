@@ -42,7 +42,7 @@ function Sidebar() {
   const isAdmin = adminList.includes(userEmail);
   const isSuperAdmin = userEmail === "naramon.si@ku.th";
 
-  // 🔴 ปรับปรุง: ลบเฉพาะคีย์ล็อกอินของผู้ใช้ ไม่ล้างข้อมูลระบบทั้งหมด (ข้อมูลจึงไม่หายเมื่อ Logout)
+ 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
     localStorage.removeItem("role");
