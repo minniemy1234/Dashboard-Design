@@ -1,5 +1,6 @@
+// ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
 import Sidebar from "../components/Sidebar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import * as XLSX from "xlsx";
 import { setDashboardData } from "../data/dashboardData";
 import {
@@ -10,19 +11,20 @@ import {
   DatabaseOutlined,
   PictureOutlined,
   FolderOpenOutlined,
-  UserOutlined
+  UserOutlined,
+  LockOutlined
 } from "@ant-design/icons";
 import { 
   Layout as AntLayout, 
   Card as AntCard, 
   Button as AntButton, 
   Modal as AntModal, 
-  Empty as AntEmpty, 
   Input as AntInput, 
   Select as AntSelect,
   message,
   Upload as AntUpload,
-  Tabs as AntTabs
+  Tabs as AntTabs,
+  Alert as AntAlert
 } from "antd";
 
 const { Header, Content } = AntLayout;
@@ -44,20 +46,18 @@ function UploadPage() {
   const [batchImageFiles, setBatchImageFiles] = useState([]);
   const [selectedTeacherIndex, setSelectedTeacherIndex] = useState(null);
 
-  useEffect(() => {
-    refreshExistingCategories();
-  }, []);
+  // 🛡️ STATE ตรวจสอบสิทธิ์ผู้ดูแลระบบ (ADMIN)
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // 🧹 ฟังก์ชันสำหรับ Clean และกรองขยะออก ให้เหลือเฉพาะอาจารย์จริง
-  const cleanFacultyList = (list) => {
+  const cleanFacultyList = useCallback((list) => {
     if (!Array.isArray(list)) return [];
     
-    // 1. กรองเฉพาะแถวที่มีชื่ออาจารย์จริงๆ (รองรับชื่อคอลัมน์หลายรูปแบบ)
+    // 1. กรองเฉพาะแถวที่มีชื่ออาจารย์จริงๆ
     const validRows = list.filter(item => {
       const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || item["ชื่อผู้สอน"] || item["Name"] || "";
       const cleanName = String(name).trim();
       
-      // เช็กว่าเป็นชื่อจริงๆ ไม่ใช่แถวว่าง หรือแถวสรุปผลส่วนเกิน
       const isInvalid = 
         cleanName === "" || 
         cleanName === "-" || 
@@ -79,49 +79,66 @@ function UploadPage() {
     });
 
     return Array.from(uniqueMap.values());
-  };
+  }, []);
 
   // 🔍 ระบบตรวจค้นหาคลังข้อมูลอาจารย์ใน localStorage
-  const refreshExistingCategories = () => {
+  const refreshExistingCategories = useCallback(() => {
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
-      const data = JSON.parse(stored);
-      const keys = Object.keys(data);
-      setExistingCategories(keys);
-      
-      if (data["student_retain_survey_group"]) {
-        setSurveyYearsList(Object.keys(data["student_retain_survey_group"]).sort());
-      } else {
-        setSurveyYearsList([]);
-      }
+      try {
+        const data = JSON.parse(stored);
+        const keys = Object.keys(data);
+        setExistingCategories(keys);
+        
+        if (data["student_retain_survey_group"]) {
+          setSurveyYearsList(Object.keys(data["student_retain_survey_group"]).sort());
+        } else {
+          setSurveyYearsList([]);
+        }
 
-      let foundTeachers = [];
-      let matchedKey = "ข้อมูลอาจารย์";
+        let foundTeachers = [];
+        let matchedKey = "ข้อมูลอาจารย์";
 
-      // 🎯 Prioritize: เช็กหา Key "ข้อมูลอาจารย์" หรือ "อาจารย์" โดยตรงก่อนเลย
-      if (Array.isArray(data["ข้อมูลอาจารย์"]) && data["ข้อมูลอาจารย์"].length > 0) {
-        foundTeachers = data["ข้อมูลอาจารย์"];
-        matchedKey = "ข้อมูลอาจารย์";
-      } else if (Array.isArray(data["อาจารย์"]) && data["อาจารย์"].length > 0) {
-        foundTeachers = data["อาจารย์"];
-        matchedKey = "อาจารย์";
-      } else {
-        // ถ้าไม่เจอค่อยใช้วิธีวนลูปสแกนหา
-        for (let key of keys) {
-          const val = data[key];
-          if (Array.isArray(val) && val.length > 0 && key.includes("อาจารย์")) {
-            foundTeachers = val;
-            matchedKey = key;
-            break;
+        if (Array.isArray(data["ข้อมูลอาจารย์"]) && data["ข้อมูลอาจารย์"].length > 0) {
+          foundTeachers = data["ข้อมูลอาจารย์"];
+          matchedKey = "ข้อมูลอาจารย์";
+        } else if (Array.isArray(data["อาจารย์"]) && data["อาจารย์"].length > 0) {
+          foundTeachers = data["อาจารย์"];
+          matchedKey = "อาจารย์";
+        } else {
+          for (let key of keys) {
+            const val = data[key];
+            if (Array.isArray(val) && val.length > 0 && key.includes("อาจารย์")) {
+              foundTeachers = val;
+              matchedKey = key;
+              break;
+            }
           }
         }
-      }
 
-      const cleanedTeachers = cleanFacultyList(foundTeachers);
-      setFacultyList(cleanedTeachers);
-      setFacultyStorageKey(matchedKey);
+        const cleanedTeachers = cleanFacultyList(foundTeachers);
+        setFacultyList(cleanedTeachers);
+        setFacultyStorageKey(matchedKey);
+      } catch (error) {
+        console.error("Error parsing dashboardData:", error);
+      }
+    } else {
+      setExistingCategories([]);
+      setSurveyYearsList([]);
+      setFacultyList([]);
     }
-  };
+  }, [cleanFacultyList]);
+
+  useEffect(() => {
+    // 🔒 เช็กสิทธิ์แอดมินจาก LocalStorage
+    const currentRole = localStorage.getItem("role");
+    const currentEmail = (localStorage.getItem("email") || "").toLowerCase();
+
+    const checkAdminStatus = currentRole === "admin" || currentEmail === "naramon.si@ku.th";
+    setIsAdmin(checkAdminStatus);
+
+    refreshExistingCategories();
+  }, [refreshExistingCategories]);
 
   const cleanString = (str) => {
     if (!str) return "";
@@ -147,9 +164,14 @@ function UploadPage() {
   };
 
   // -------------------------------------------------------------
-  // 📊 LOGIC การจัดการไฟล์ EXCEL (รองรับไฟล์หลาย Sheet เช่น ข้อมูลอาจารย์_2.xlsx)
+  // 📊 LOGIC การจัดการไฟล์ EXCEL / CSV
   // -------------------------------------------------------------
   const handleFileChange = (event) => {
+    if (!isAdmin) {
+      message.error("คุณไม่มีสิทธิ์ในการอัปโหลดไฟล์ (สิทธิ์สำหรับผู้ดูแลระบบเท่านั้น)");
+      return;
+    }
+
     const file = event.target.files[0];
     if (!file) return;
 
@@ -164,7 +186,14 @@ function UploadPage() {
       let finalPayload = {};
       let detectedCategoriesList = [];
 
-      // สแกนอ่านข้อมูลจากทุก Sheet ในไฟล์ Excel
+      const cleanFileName = cleanString(file.name);
+
+      const isStudentStatus = cleanFileName.includes("สถานภาพ");
+      const isRetain = cleanFileName.includes("คงอยู่");
+      
+      const isGraduateEval = cleanFileName.includes("คุณภาพบัณฑิต") || cleanFileName.includes("ประเมินคุณภาพบัณฑิต");
+      const isCurriculumEval = cleanFileName.includes("คุณภาพหลักสูตร") || cleanFileName.includes("ประเมินคุณภาพหลักสูตร");
+
       workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonOutput = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
@@ -174,8 +203,36 @@ function UploadPage() {
         const rawHeaders = Object.keys(jsonOutput[0] || {});
         const columnHeadersClean = rawHeaders.map(k => cleanString(k));
 
-        // ตรวจสอบข้อมูล Sheet อาจารย์
         if (
+          isRetain || 
+          sheetName.includes("คงอยู่") || 
+          columnHeadersClean.some(h => h.includes("ปีที่สำรวจ") || h.includes("ปีการศึกษาที่รับเข้า"))
+        ) {
+          finalPayload["ข้อมูลนิสิตคงอยู่"] = jsonOutput;
+          finalPayload["student_retain_data"] = jsonOutput;
+          detectedCategoriesList.push("ข้อมูลนิสิตคงอยู่");
+        } 
+        else if (isStudentStatus || sheetName.includes("สถานภาพ")) {
+          finalPayload["สถานภาพนิสิต"] = jsonOutput;
+          finalPayload["ข้อมูลสถานภาพนิสิต"] = jsonOutput;
+          finalPayload["student_status_data"] = jsonOutput;
+          detectedCategoriesList.push("สถานภาพนิสิต");
+        } 
+        else if (isGraduateEval || sheetName.includes("คุณภาพบัณฑิต")) {
+          finalPayload["ผลการประเมินคุณภาพบัณฑิต"] = jsonOutput;
+          finalPayload["graduate_evaluation_data"] = jsonOutput;
+          detectedCategoriesList.push("ผลการประเมินคุณภาพบัณฑิต");
+        }
+        else if (
+          isCurriculumEval ||
+          sheetName.includes("หลักสูตร") ||
+          columnHeadersClean.some(h => h.includes("คะแนนรวม") || h.includes("องค์ที่"))
+        ) {
+          finalPayload["ผลการประเมินคุณภาพหลักสูตร"] = jsonOutput;
+          finalPayload["curriculum_evaluation_data"] = jsonOutput;
+          detectedCategoriesList.push("ผลการประเมินคุณภาพหลักสูตร");
+        }
+        else if (
           sheetName.includes("อาจารย์") || 
           columnHeadersClean.some(h => h.includes("ตำแหน่งทางวิชาการ") || h.includes("คุณวุฒิ") || h.includes("ชื่ออาจารย์"))
         ) {
@@ -183,7 +240,6 @@ function UploadPage() {
           finalPayload["ข้อมูลอาจารย์"] = cleaned;
           detectedCategoriesList.push("ข้อมูลอาจารย์");
         } 
-        // ตรวจสอบข้อมูล Sheet ภาวะการมีงานทำ
         else if (
           sheetName.includes("งานทำ") || 
           columnHeadersClean.some(h => h.includes("ผู้สำเร็จการศึกษา") || h.includes("มีงานทำเดิม") || h.includes("สถานภาพของบัณฑิต"))
@@ -192,7 +248,6 @@ function UploadPage() {
           finalPayload["employment_chart_data"] = jsonOutput;
           detectedCategoriesList.push("ภาวะการมีงานทำ");
         } 
-        // ตรวจสอบข้อมูล Sheet วิจัย
         else if (
           sheetName.includes("วิจัย") || 
           columnHeadersClean.some(h => h.includes("ผลงานวิจัย") || h.includes("Scopus"))
@@ -200,18 +255,12 @@ function UploadPage() {
           finalPayload["ข้อมูลวิจัย"] = jsonOutput;
           detectedCategoriesList.push("ข้อมูลวิจัย");
         } 
-        // ตรวจสอบ Sheet ผลการประเมิน
-        else if (columnHeadersClean.some(h => h.includes("คะแนนรวม") || h.includes("องค์ที่"))) {
-          finalPayload["ผลการประเมินคุณภาพหลักสูตร"] = jsonOutput;
-          detectedCategoriesList.push("ผลการประเมินคุณภาพหลักสูตร");
-        } 
         else {
           finalPayload[sheetName] = jsonOutput;
           detectedCategoriesList.push(sheetName);
         }
       });
 
-      // ถ้าค้นหาแบบสแกน Sheet ไม่พบ ให้ fallback ไปใช้ Sheet แรก
       if (Object.keys(finalPayload).length === 0) {
         const targetSheetKey = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[targetSheetKey];
@@ -227,7 +276,7 @@ function UploadPage() {
         detectedCategoriesList.push(finalCategoryKey);
       }
 
-      const categorySummary = detectedCategoriesList.join(", ");
+      const categorySummary = Array.from(new Set(detectedCategoriesList)).join(", ");
       setDetectedCategory(categorySummary);
       setTempResult(finalPayload);
     };
@@ -235,6 +284,11 @@ function UploadPage() {
   };
 
   const handleUpload = () => {
+    if (!isAdmin) {
+      message.error("เฉพาะผู้ดูแลระบบ (naramon.si@ku.th) เท่านั้นที่สามารถจัดเก็บข้อมูลได้");
+      return;
+    }
+
     if (!selectedFile || !tempResult) return;
 
     if (detectedCategory.includes("student_retain_survey_group")) {
@@ -286,6 +340,11 @@ function UploadPage() {
   // 📸 LOGIC การจัดการรูปภาพอาจารย์
   // -------------------------------------------------------------
   const handleSaveBatchTeacherImages = async () => {
+    if (!isAdmin) {
+      message.error("สิทธิ์ไม่เพียงพอสำหรับการแก้ไขรูปภาพอาจารย์");
+      return;
+    }
+
     if (batchImageFiles.length === 0) {
       message.warning("กรุณาเลือกรูปภาพหรือโฟลเดอร์รูปภาพก่อนครับ");
       return;
@@ -303,38 +362,48 @@ function UploadPage() {
     let updatedList = [...teachersList];
     let matchedCount = 0;
 
-    for (let file of batchImageFiles) {
-      const base64Image = await convertFileToBase64(file);
-      const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
-      const cleanFileName = normalizeTeacherName(fileNameWithoutExt);
-
-      if (!cleanFileName) continue;
-
-      updatedList = updatedList.map(teacher => {
-        const teacherName = teacher["ชื่อ นามสกุล"] || teacher["ชื่อ-นามสกุล"] || teacher["ชื่ออาจารย์"] || teacher["ชื่อ"] || "";
-        const cleanTeacherName = normalizeTeacherName(teacherName);
-
-        if (cleanTeacherName && (cleanFileName.includes(cleanTeacherName) || cleanTeacherName.includes(cleanFileName))) {
-          matchedCount++;
-          return { ...teacher, รูปภาพ: base64Image, avatar: base64Image, image: base64Image };
+    try {
+      for (let file of batchImageFiles) {
+        // ตรวจสอบขนาดไฟล์ภาพไม่เกิน 2MB เพื่อป้องกัน localStorage เต็ม
+        if (file.size > 2 * 1024 * 1024) {
+          message.warning(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 2MB อาจทำให้ความจำระบบเต็มได้`);
         }
-        return teacher;
-      });
-    }
 
-    if (matchedCount > 0) {
-      dashboard[facultyStorageKey] = updatedList;
-      dashboard["ข้อมูลอาจารย์"] = updatedList;
+        const base64Image = await convertFileToBase64(file);
+        const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
+        const cleanFileName = normalizeTeacherName(fileNameWithoutExt);
 
-      setDashboardData(dashboard);
-      localStorage.setItem("dashboardData", JSON.stringify(dashboard));
-      window.dispatchEvent(new Event("storage"));
+        if (!cleanFileName) continue;
 
-      message.success(`จับคู่และอัปเดตรูปภาพอาจารย์สำเร็จ ${matchedCount} คนเรียบร้อยแล้ว!`);
-      setBatchImageFiles([]);
-      refreshExistingCategories();
-    } else {
-      message.error("ไม่พบชื่ออาจารย์ที่ตรงกับชื่อไฟล์รูปภาพเลย กรุณาตรวจสอบว่าชื่อไฟล์ตรงกับชื่ออาจารย์ในตารางหรือไม่");
+        updatedList = updatedList.map(teacher => {
+          const teacherName = teacher["ชื่อ นามสกุล"] || teacher["ชื่อ-นามสกุล"] || teacher["ชื่ออาจารย์"] || teacher["ชื่อ"] || "";
+          const cleanTeacherName = normalizeTeacherName(teacherName);
+
+          if (cleanTeacherName && (cleanFileName.includes(cleanTeacherName) || cleanTeacherName.includes(cleanFileName))) {
+            matchedCount++;
+            return { ...teacher, รูปภาพ: base64Image, avatar: base64Image, image: base64Image };
+          }
+          return teacher;
+        });
+      }
+
+      if (matchedCount > 0) {
+        dashboard[facultyStorageKey] = updatedList;
+        dashboard["ข้อมูลอาจารย์"] = updatedList;
+
+        setDashboardData(dashboard);
+        localStorage.setItem("dashboardData", JSON.stringify(dashboard));
+        window.dispatchEvent(new Event("storage"));
+
+        message.success(`จับคู่และอัปเดตรูปภาพอาจารย์สำเร็จ ${matchedCount} คนเรียบร้อยแล้ว!`);
+        setBatchImageFiles([]);
+        refreshExistingCategories();
+      } else {
+        message.error("ไม่พบชื่ออาจารย์ที่ตรงกับชื่อไฟล์รูปภาพเลย กรุณาตรวจสอบว่าชื่อไฟล์ตรงกับชื่ออาจารย์ในตารางหรือไม่");
+      }
+    } catch (err) {
+      message.error("เกิดข้อผิดพลาดในการประมวลผลไฟล์รูปภาพ");
+      console.error(err);
     }
   };
 
@@ -350,6 +419,11 @@ function UploadPage() {
   };
 
   const handleDeleteCategory = (categoryName) => {
+    if (!isAdmin) {
+      message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถลบข้อมูลในคลังได้");
+      return;
+    }
+
     AntModal.confirm({
       title: "ต้องการลบข้อมูลกลุ่มนี้ใช่หรือไม่?",
       content: `หมวดข้อมูล "${categoryName}" จะถูกลบออกถาวร`,
@@ -370,14 +444,21 @@ function UploadPage() {
   };
 
   const handleDeleteSurveyYear = (year) => {
+    if (!isAdmin) {
+      message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถลบข้อมูลสถิติรายปีได้");
+      return;
+    }
+
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
       const data = JSON.parse(stored);
-      delete data["student_retain_survey_group"][year];
-      localStorage.setItem("dashboardData", JSON.stringify(data));
-      setDashboardData(data); 
-      window.dispatchEvent(new Event("storage"));
-      refreshExistingCategories();
+      if (data["student_retain_survey_group"]) {
+        delete data["student_retain_survey_group"][year];
+        localStorage.setItem("dashboardData", JSON.stringify(data));
+        setDashboardData(data); 
+        window.dispatchEvent(new Event("storage"));
+        refreshExistingCategories();
+      }
     }
   };
 
@@ -405,20 +486,37 @@ function UploadPage() {
         </Header>
 
         <Content style={{ padding: "24px 32px 32px 32px", background: "#f5f5f5" }}>
+
+          {/* 🔴 แจ้งเตือนกรณีผู้ใช้ปัจจุบันไม่ใช่ Admin */}
+          {!isAdmin && (
+            <AntAlert
+              message="โหมดอ่านอย่างเดียว (Read Only)"
+              description="คุณกำลังเข้าใช้งานในสิทธิ์ผู้ใช้ทั่วไป (User) บัญชีของคุณไม่มีสิทธิ์แก้ไข เพิ่มเติม หรือลบข้อมูลในหน้านี้ (เฉพาะบัญชี naramon.si@ku.th เท่านั้น)"
+              type="warning"
+              showIcon
+              icon={<LockOutlined />}
+              style={{ marginBottom: 20, borderRadius: 12, border: "1px solid #ffe58f" }}
+            />
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 24, alignItems: "start" }}>
             
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               
-              {/* 1. ช่องอัปโหลดไฟล์ Excel */}
+              {/* 1. ช่องอัปโหลดไฟล์ Excel / CSV */}
               <AntCard title="ช่องอัปโหลดไฟล์หลัก" style={{ ...commonCardStyle, borderTop: "4px solid #0050b3" }}>
                 <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
                   <b>ระบบวิเคราะห์ประเภทข้อมูลอัตโนมัติ:</b> วางไฟล์ข้อมูลดิบชุดใดก็ได้ ระบบจะทำการวิเคราะห์ความสอดคล้องของตาราง บันทึกเข้าคลัง และเตรียมประมวลผลขึ้นกราฟแสดงสัดส่วนให้อัตโนมัติทันที
                 </p>
-                <div style={{ border: "2px dashed #0050b3", padding: "30px 16px", borderRadius: 12, textAlign: "center", background: "#f0f5ff", transition: "all 0.3s ease", marginBottom: 16 }}>
-                  <UploadOutlined style={{ fontSize: 32, color: "#0050b3", marginBottom: 12 }} />
+                <div style={{ border: `2px dashed ${isAdmin ? "#0050b3" : "#d9d9d9"}`, padding: "30px 16px", borderRadius: 12, textAlign: "center", background: isAdmin ? "#f0f5ff" : "#f5f5f5", transition: "all 0.3s ease", marginBottom: 16 }}>
+                  <UploadOutlined style={{ fontSize: 32, color: isAdmin ? "#0050b3" : "#bfbfbf", marginBottom: 12 }} />
                   <div>
-                    <label htmlFor="file-upload" style={{ cursor: "pointer", color: "#0050b3", fontWeight: 700, fontSize: 14 }}>คลิกเลือกไฟล์ชุดข้อมูล (.csv, .xlsx)</label>
-                    <input id="file-upload" type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: "none" }} />
+                    <label htmlFor={isAdmin ? "file-upload" : ""} style={{ cursor: isAdmin ? "pointer" : "not-allowed", color: isAdmin ? "#0050b3" : "#bfbfbf", fontWeight: 700, fontSize: 14 }}>
+                      {isAdmin ? "คลิกเลือกไฟล์ชุดข้อมูล (.csv, .xlsx)" : "เฉพาะผู้ดูแลระบบเท่านั้นที่เลือกไฟล์ได้"}
+                    </label>
+                    {isAdmin && (
+                      <input id="file-upload" type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: "none" }} />
+                    )}
                   </div>
                 </div>
                 {fileName && (
@@ -436,11 +534,11 @@ function UploadPage() {
                 <AntButton 
                   type="primary" 
                   icon={<CheckCircleOutlined />} 
-                  disabled={!selectedFile} 
+                  disabled={!selectedFile || !isAdmin} 
                   onClick={handleUpload} 
-                  style={{ width: "100%", height: 42, borderRadius: 10, background: "#0050b3", borderColor: "#0050b3", fontWeight: 600, fontSize: 14 }}
+                  style={{ width: "100%", height: 42, borderRadius: 10, background: isAdmin ? "#0050b3" : "#d9d9d9", borderColor: isAdmin ? "#0050b3" : "#d9d9d9", fontWeight: 600, fontSize: 14 }}
                 >
-                  วิเคราะห์และบันทึกเข้าสู่ระบบ
+                  {isAdmin ? "วิเคราะห์และบันทึกเข้าสู่ระบบ" : "ไม่มีสิทธิ์บันทึกข้อมูล"}
                 </AntButton>
               </AntCard>
 
@@ -516,16 +614,21 @@ function UploadPage() {
                                 {activeSelectedTeacher["ชื่อสาขา"] || activeSelectedTeacher["สาขาวิชา"] || activeSelectedTeacher["สาขา"] || "สังกัดคณะ"}
                               </div>
 
-                              <label htmlFor="single-teacher-file-input">
-                                <AntButton 
-                                  type="primary" 
-                                  icon={<UploadOutlined />} 
-                                  style={{ background: "#722ed1", borderColor: "#722ed1", borderRadius: 8, height: 38 }}
-                                  onClick={() => document.getElementById("single-teacher-file-input").click()}
-                                >
-                                  {(activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar) ? "เปลี่ยนรูปภาพโปรไฟล์ใหม่" : "อัปโหลดรูปภาพประจำตัว"}
-                                </AntButton>
-                              </label>
+                              <AntButton 
+                                type="primary" 
+                                icon={<UploadOutlined />} 
+                                disabled={!isAdmin}
+                                style={{ background: isAdmin ? "#722ed1" : "#d9d9d9", borderColor: isAdmin ? "#722ed1" : "#d9d9d9", borderRadius: 8, height: 38 }}
+                                onClick={() => {
+                                  if (!isAdmin) {
+                                    message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่อัปโหลดรูปโปรไฟล์ได้");
+                                    return;
+                                  }
+                                  document.getElementById("single-teacher-file-input").click();
+                                }}
+                              >
+                                {(activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar) ? "เปลี่ยนรูปภาพโปรไฟล์ใหม่" : "อัปโหลดรูปภาพประจำตัว"}
+                              </AntButton>
 
                               <input
                                 id="single-teacher-file-input"
@@ -533,6 +636,7 @@ function UploadPage() {
                                 accept="image/*"
                                 style={{ display: "none" }}
                                 onChange={async (e) => {
+                                  if (!isAdmin) return;
                                   const file = e.target.files[0];
                                   if (!file) return;
 
@@ -562,6 +666,7 @@ function UploadPage() {
                                     window.dispatchEvent(new Event("storage"));
 
                                     message.success(`บันทึกรูปภาพของ ${selectedName} เรียบร้อยแล้ว`);
+                                    e.target.value = ""; // Reset input
                                     refreshExistingCategories();
                                   } catch (err) {
                                     message.error("เกิดข้อผิดพลาดในการบันทึกรูปภาพ");
@@ -591,7 +696,12 @@ function UploadPage() {
                           <AntUpload.Dragger
                             multiple
                             accept="image/*"
+                            disabled={!isAdmin}
                             beforeUpload={(file) => {
+                              if (!isAdmin) {
+                                message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่อัปโหลดรูปภาพได้");
+                                return false;
+                              }
                               setBatchImageFiles(prev => [...prev, file]);
                               return false;
                             }}
@@ -601,9 +711,11 @@ function UploadPage() {
                             fileList={batchImageFiles}
                           >
                             <p className="ant-upload-drag-icon">
-                              <FolderOpenOutlined style={{ color: "#722ed1", fontSize: 36 }} />
+                              <FolderOpenOutlined style={{ color: isAdmin ? "#722ed1" : "#bfbfbf", fontSize: 36 }} />
                             </p>
-                            <p style={{ fontWeight: 600, color: "#262626", margin: "4px 0" }}>ลากไฟล์รูปภาพทั้งหมดในโฟลเดอร์มาวางที่นี่ หรือคลิกเพื่อเลือก</p>
+                            <p style={{ fontWeight: 600, color: "#262626", margin: "4px 0" }}>
+                              {isAdmin ? "ลากไฟล์รูปภาพทั้งหมดในโฟลเดอร์มาวางที่นี่ หรือคลิกเพื่อเลือก" : "ปิดการใช้งานสำหรับสิทธิ์ผู้ใช้ทั่วไป"}
+                            </p>
                             <p style={{ fontSize: 12, color: "#8c8c8c" }}>ระบบจะจับคู่ชื่อไฟล์กับรายชื่ออาจารย์ให้อัตโนมัติ</p>
                           </AntUpload.Dragger>
 
@@ -611,10 +723,10 @@ function UploadPage() {
                             type="primary"
                             icon={<CheckCircleOutlined />}
                             onClick={handleSaveBatchTeacherImages}
-                            disabled={batchImageFiles.length === 0}
-                            style={{ height: 42, borderRadius: 8, background: "#722ed1", borderColor: "#722ed1", fontWeight: 600 }}
+                            disabled={batchImageFiles.length === 0 || !isAdmin}
+                            style={{ height: 42, borderRadius: 8, background: isAdmin ? "#722ed1" : "#d9d9d9", borderColor: isAdmin ? "#722ed1" : "#d9d9d9", fontWeight: 600 }}
                           >
-                            ประมวลผลจับคู่และบันทึกรูปภาพ ({batchImageFiles.length} รูป)
+                            {isAdmin ? `ประมวลผลจับคู่และบันทึกรูปภาพ (${batchImageFiles.length} รูป)` : "เฉพาะผู้ดูแลระบบเท่านั้น"}
                           </AntButton>
                         </div>
                       )
@@ -628,33 +740,56 @@ function UploadPage() {
             {/* ฝั่งขวา: แสดงคลังข้อมูลในระบบปัจจุบัน */}
             <AntCard title={<span><DatabaseOutlined style={{ marginRight: 8, color: "#0077b6" }} /> คลังข้อมูลระบบปัจจุบัน</span>} style={{ ...commonCardStyle, position: "sticky", top: 24 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {existingCategories.map((category) => {
-                  const isSurveyGroup = category === "student_retain_survey_group";
-                  const isEmpChart = category === "employment_chart_data";
-                  
-                  return (
-                    <div key={category} style={{ padding: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00b4d8" }}></div>
-                          <span style={{ fontWeight: 600, fontSize: 14, color: "#1e293b" }}>
-                            {isEmpChart ? "📊 ข้อมูลแผนภูมิสัดส่วน (ภาวะการมีงานทำ)" : category}
-                          </span>
+                {existingCategories.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "#8c8c8c", padding: "40px 0" }}>
+                    ยังไม่มีข้อมูลบันทึกในคลังระบบ
+                  </div>
+                ) : (
+                  existingCategories.map((category) => {
+                    const isSurveyGroup = category === "student_retain_survey_group";
+                    
+                    return (
+                      <div key={category} style={{ padding: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <DatabaseOutlined style={{ color: "#0077b6", fontSize: 18 }} />
+                            <span style={{ fontWeight: 600, color: "#1e293b", fontSize: 14 }}>
+                              {category}
+                            </span>
+                          </div>
+                          {isAdmin && (
+                            <AntButton
+                              type="text"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleDeleteCategory(category)}
+                            />
+                          )}
                         </div>
-                        <AntButton type="text" danger size="small" icon={<DeleteOutlined />} onClick={() => handleDeleteCategory(category)}>ลบทั้งหมด</AntButton>
-                      </div>
 
-                      {isSurveyGroup && surveyYearsList.map(year => (
-                        <div key={year} style={{ display: "flex", justifyContent: "space-between", marginTop: 8, background: "#fff", padding: "6px 12px", borderRadius: 8, fontSize: 12, border: "1px solid #f1f5f9" }}>
-                          <span style={{ color: "#475569" }}>📆 ปีสำรวจ: {year}</span>
-                          <span style={{ color: "#ef4444", cursor: "pointer", fontWeight: 500 }} onClick={() => handleDeleteSurveyYear(year)}>ลบ</span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })}
-                {existingCategories.length === 0 && (
-                  <AntEmpty image={AntEmpty.PRESENTED_IMAGE_SIMPLE} description="ยังไม่มีข้อมูลบันทึกในคลังระบบ" />
+                        {/* แสดงย่อยกรณีเป็นหมวดหมู่รายปี */}
+                        {isSurveyGroup && surveyYearsList.length > 0 && (
+                          <div style={{ marginTop: 12, paddingLeft: 12, borderLeft: "2px solid #cbd5e1", display: "flex", flexDirection: "column", gap: 6 }}>
+                            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>ปีการศึกษาที่มีข้อมูล:</div>
+                            {surveyYearsList.map((year) => (
+                              <div key={year} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 12 }}>
+                                <span>📅 ปีการศึกษา {year}</span>
+                                {isAdmin && (
+                                  <AntButton
+                                    type="text"
+                                    danger
+                                    size="small"
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => handleDeleteSurveyYear(year)}
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </AntCard>
