@@ -1,6 +1,6 @@
+import React, { useMemo, useState, useEffect } from "react";
 import { Layout, Table, Button, Card, Row, Col, Empty, Input, Avatar, Tag, Modal, Segmented } from "antd";
 import Sidebar from "../components/Sidebar";
-import { useMemo, useState, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -69,10 +69,14 @@ function FacultyPage() {
     const loadFacultyData = () => {
       const stored = localStorage.getItem("dashboardData");
       if (stored) {
-        const parsed = JSON.parse(stored);
-        const facultyData = parsed["ข้อมูลอาจารย์"] || parsed["อาจารย์"] || parsed["อาจารย์สาขา"] || [];
-        const cleaned = cleanFacultyData(facultyData);
-        setRawData(cleaned);
+        try {
+          const parsed = JSON.parse(stored);
+          const facultyData = parsed["ข้อมูลอาจารย์"] || parsed["อาจารย์"] || parsed["อาจารย์สาขา"] || [];
+          const cleaned = cleanFacultyData(facultyData);
+          setRawData(cleaned);
+        } catch (error) {
+          console.error("Error parsing dashboardData from localStorage:", error);
+        }
       }
     };
 
@@ -94,6 +98,7 @@ function FacultyPage() {
 
   // Helper อ่านประเภทบุคลากร
   const getTeacherType = (item) => {
+    if (!item) return "สายวิชาการ";
     return item["ประเภทบุคลากร"] || item["ประเภทอาจารย์"] || item["กลุ่มอาจารย์"] || item["ประเภท"] || item["หน้าที่"] || "สายวิชาการ";
   };
 
@@ -250,6 +255,7 @@ function FacultyPage() {
   }, [mainFilteredData]);
 
   const getAvatarUrl = (item) => {
+    if (!item) return `https://api.dicebear.com/7.x/adventurer/svg?seed=default`;
     const name = String(item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "");
     const cleanName = encodeURIComponent(name);
     
@@ -475,7 +481,7 @@ function FacultyPage() {
               </Row>
 
               {/* DONUT CHARTS ZONE */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20, marginBottom: 24 }}>
                 
                 <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
                   <h3 style={{ margin: "0 0 16px 0", fontSize: 16, fontWeight: 600, color: "#1f1f1f" }}>
@@ -523,33 +529,39 @@ function FacultyPage() {
                     สัดส่วนระดับคุณวุฒิการศึกษา
                   </h3>
                   <div style={{ height: 260 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={degreeChartData}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="40%"
-                          cy="50%"
-                          innerRadius={55}
-                          outerRadius={90}
-                          paddingAngle={2}
-                          label={({ value, percent }) => `${value} (${(percent * 100).toFixed(1)}%)`}
-                        >
-                          {degreeChartData.map((entry, index) => (
-                            <Cell key={`cell-deg-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => [`${value} ท่าน`, 'จำนวน']} />
-                        <Legend 
-                          layout="vertical" 
-                          verticalAlign="middle" 
-                          align="right"
-                          iconType="circle"
-                          wrapperStyle={{ fontSize: 13, paddingLeft: 10 }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    {degreeChartData.length === 0 ? (
+                      <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#bfbfbf" }}>
+                        ไม่มีข้อมูลคุณวุฒิการศึกษา
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={degreeChartData}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="40%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={90}
+                            paddingAngle={2}
+                            label={({ value, percent }) => `${value} (${(percent * 100).toFixed(1)}%)`}
+                          >
+                            {degreeChartData.map((entry, index) => (
+                              <Cell key={`cell-deg-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => [`${value} ท่าน`, 'จำนวน']} />
+                          <Legend 
+                            layout="vertical" 
+                            verticalAlign="middle" 
+                            align="right"
+                            iconType="circle"
+                            wrapperStyle={{ fontSize: 13, paddingLeft: 10 }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </div>
 
@@ -579,7 +591,7 @@ function FacultyPage() {
               {/* MAIN AREA */}
               <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.04)", marginBottom: 24 }}>
                 
-                {/* HEADER ROW - ล็อกตำแหน่ง Segmented ให้อยู่ทางขวาเสมอ ไม่ขยับตามส่วนอื่น */}
+                {/* HEADER ROW */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
                   <div>
                     <h3 style={{ margin: "0 0 4px 0", fontWeight: 600, fontSize: 16 }}>
@@ -590,7 +602,6 @@ function FacultyPage() {
                     </div>
                   </div>
 
-                  {/* ปุ่ม Segmented จะถูกตรึงตำแหน่งไว้มุมขวาบนตรงนี้ตลอดเวลา */}
                   <Segmented
                     options={[
                       { label: "การ์ดภาพโปรไฟล์", value: "cards", icon: <AppstoreOutlined /> },
@@ -664,7 +675,7 @@ function FacultyPage() {
                                   border: "1px solid #f0f0f0",
                                   boxShadow: "0 4px 12px rgba(0,0,0,0.01)"
                                 }}
-                                bodyStyle={{ padding: "24px 16px" }}
+                                styles={{ body: { padding: "24px 16px" } }}
                               >
                                 <Avatar 
                                   src={getAvatarUrl(teacher)} 
@@ -708,7 +719,6 @@ function FacultyPage() {
                 {/* --- 📋 2. Table View --- */}
                 {viewType === "table" && (
                   <div>
-                    {/* แถบตัวกรองเฉพาะของตาราง ย้ายมาไว้อย่างเรียบร้อยตรงนี้ ไม่รบกวนปุ่มสลับมุมมอง */}
                     <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#f9fafb", padding: "6px 14px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
                         <FilterOutlined style={{ color: "#1890ff" }} />
@@ -738,125 +748,125 @@ function FacultyPage() {
             </>
           )}
 
-        {/* 👤 POPUP MODAL */}
-        <Modal
-          open={isModalOpen}
-          onCancel={() => setIsModalOpen(false)}
-          footer={[
-            <Button key="close" type="primary" onClick={() => setIsModalOpen(false)} style={{ borderRadius: 8 }}>
-              ปิดหน้าต่าง
-            </Button>
-          ]}
-          width={600}
-          centered
-          bodyStyle={{ padding: "24px" }}
-          style={{ borderRadius: 20, overflow: "hidden" }}
-        >
-          {activeTeacher && (
-            <div style={{ textAlign: "center" }}>
-              <div style={{ 
-                background: "linear-gradient(135deg, #1890ff 0%, #722ed1 100%)", 
-                height: 100, 
-                borderRadius: "12px 12px 0 0", 
-                margin: "-24px -24px 40px -24px",
-                position: "relative"
-              }}>
-                <Avatar 
-                  src={getAvatarUrl(activeTeacher)} 
-                  size={100} 
-                  style={{ 
-                    border: "4px solid white", 
-                    boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
-                    position: "absolute",
-                    bottom: "-50px",
-                    left: "calc(50% - 50px)"
-                  }} 
-                />
+          {/* 👤 POPUP MODAL */}
+          <Modal
+            open={isModalOpen}
+            onCancel={() => setIsModalOpen(false)}
+            footer={[
+              <Button key="close" type="primary" onClick={() => setIsModalOpen(false)} style={{ borderRadius: 8 }}>
+                ปิดหน้าต่าง
+              </Button>
+            ]}
+            width={600}
+            centered
+            styles={{ body: { padding: "24px" } }}
+            style={{ borderRadius: 20, overflow: "hidden" }}
+          >
+            {activeTeacher && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ 
+                  background: "linear-gradient(135deg, #1890ff 0%, #722ed1 100%)", 
+                  height: 100, 
+                  borderRadius: "12px 12px 0 0", 
+                  margin: "-24px -24px 40px -24px",
+                  position: "relative"
+                }}>
+                  <Avatar 
+                    src={getAvatarUrl(activeTeacher)} 
+                    size={100} 
+                    style={{ 
+                      border: "4px solid white", 
+                      boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
+                      position: "absolute",
+                      bottom: "-50px",
+                      left: "calc(50% - 50px)"
+                    }} 
+                  />
+                </div>
+
+                <h3 style={{ margin: "16px 0 4px 0", fontSize: 22, fontWeight: 700, color: "#1f1f1f" }}>
+                  {activeTeacher["ชื่อ นามสกุล"] || activeTeacher["ชื่อ-นามสกุล"] || activeTeacher["ชื่ออาจารย์"] || activeTeacher["ชื่อ"] || "-"}
+                </h3>
+                <div style={{ marginBottom: 16, display: "flex", justifyContent: "center", gap: 6 }}>
+                  {getPositionTag(activeTeacher["ตำแหน่งทางวิชาการ"] || activeTeacher["ตำแหน่งวิชาการ"] || activeTeacher["ตำแหน่ง"])}
+                  <Tag color="geekblue">{getTeacherType(activeTeacher)}</Tag>
+                </div>
+
+                <div style={{ textAlign: "left", background: "#f8fafc", padding: 20, borderRadius: 12, border: "1px solid #f0f0f0", marginTop: 20 }}>
+                  <Row gutter={[16, 12]}>
+                    <Col span={24}>
+                      <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", fontWeight: 600 }}>สาขาวิชาที่สังกัด</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#262626" }}>
+                        {activeTeacher["สาขาวิชา"] || activeTeacher["สาขา"] || activeTeacher["ชื่อสาขา"] || "-"}
+                      </div>
+                    </Col>
+                    
+                    <Col span={24} style={{ borderTop: "1px dashed #e8e8e8", paddingTop: 10 }}>
+                      <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", fontWeight: 600 }}>คุณวุฒิ / ประวัติการศึกษา</div>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: "#262626", marginTop: 4, lineHeight: "1.6" }}>
+                        {activeTeacher["คุณวุฒิ"] || activeTeacher["วุฒิการศึกษา"] || activeTeacher["การศึกษา"] || "-"}
+                      </div>
+                    </Col>
+
+                    <Col span={24} style={{ borderTop: "1px dashed #e8e8e8", paddingTop: 10 }}>
+                      <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", fontWeight: 600 }}>ผลงานทางวิชาการ / ผลงานตีพิมพ์</div>
+                      <div style={{ marginTop: 8 }}>
+                        {(() => {
+                          const workLink = activeTeacher["ลิงก์ผลงาน"] || activeTeacher["ผลงาน"] || activeTeacher["ผลงานวิชาการ"] || activeTeacher["portfolio"] || activeTeacher["link"] || activeTeacher["url"];
+                          
+                          if (!workLink) {
+                            return <span style={{ fontSize: 13, color: "#bfbfbf" }}>ยังไม่มีข้อมูลผลงานทางวิชาการ</span>;
+                          }
+
+                          const isUrl = String(workLink).startsWith("http://") || String(workLink).startsWith("https://");
+
+                          return isUrl ? (
+                            <a 
+                              href={workLink} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              style={{ 
+                                display: "inline-flex", 
+                                alignItems: "center", 
+                                gap: 6, 
+                                color: "#1890ff", 
+                                fontWeight: 600, 
+                                fontSize: 13,
+                                background: "#e6f7ff",
+                                padding: "6px 12px",
+                                borderRadius: 8,
+                                border: "1px solid #91d5ff"
+                              }}
+                            >
+                              <BookOutlined /> ดูลิงก์ผลงานทางวิชาการ ↗
+                            </a>
+                          ) : (
+                            <div style={{ fontSize: 13, color: "#434343", lineHeight: "1.6", whiteSpace: "pre-line" }}>
+                              {workLink}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </Col>
+
+                    <Col span={24} style={{ borderTop: "1px dashed #e8e8e8", paddingTop: 10 }}>
+                      <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", fontWeight: 600 }}>ช่องทางการติดต่อ</div>
+                      <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
+                        <Col span={12} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#595959" }}>
+                          <MailOutlined style={{ color: "#1890ff" }} />
+                          <span>{activeTeacher["อีเมล"] || activeTeacher["email"] || "ยังไม่ได้ระบุอีเมล"}</span>
+                        </Col>
+                        <Col span={12} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#595959" }}>
+                          <PhoneOutlined style={{ color: "#52c41a" }} />
+                          <span>{activeTeacher["เบอร์โทร"] || activeTeacher["เบอร์โทรศัพท์"] || "ยังไม่ได้ระบุเบอร์ติดต่อ"}</span>
+                        </Col>
+                      </Row>
+                    </Col>
+                  </Row>
+                </div>
               </div>
-
-              <h3 style={{ margin: "16px 0 4px 0", fontSize: 22, fontWeight: 700, color: "#1f1f1f" }}>
-                {activeTeacher["ชื่อ นามสกุล"] || activeTeacher["ชื่อ-นามสกุล"] || activeTeacher["ชื่ออาจารย์"] || activeTeacher["ชื่อ"] || "-"}
-              </h3>
-              <div style={{ marginBottom: 16, display: "flex", justifyContent: "center", gap: 6 }}>
-                {getPositionTag(activeTeacher["ตำแหน่งทางวิชาการ"] || activeTeacher["ตำแหน่งวิชาการ"] || activeTeacher["ตำแหน่ง"])}
-                <Tag color="geekblue">{getTeacherType(activeTeacher)}</Tag>
-              </div>
-
-              <div style={{ textAlign: "left", background: "#f8fafc", padding: 20, borderRadius: 12, border: "1px solid #f0f0f0", marginTop: 20 }}>
-                <Row gutter={[16, 12]}>
-                  <Col span={24}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", fontWeight: 600 }}>สาขาวิชาที่สังกัด</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#262626" }}>
-                      {activeTeacher["สาขาวิชา"] || activeTeacher["สาขา"] || activeTeacher["ชื่อสาขา"] || "-"}
-                    </div>
-                  </Col>
-                  
-                  <Col span={24} style={{ borderTop: "1px dashed #e8e8e8", paddingTop: 10 }}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", fontWeight: 600 }}>คุณวุฒิ / ประวัติการศึกษา</div>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: "#262626", marginTop: 4, lineHeight: "1.6" }}>
-                      {activeTeacher["คุณวุฒิ"] || activeTeacher["วุฒิการศึกษา"] || activeTeacher["การศึกษา"] || "-"}
-                    </div>
-                  </Col>
-
-                  <Col span={24} style={{ borderTop: "1px dashed #e8e8e8", paddingTop: 10 }}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", fontWeight: 600 }}>ผลงานทางวิชาการ / ผลงานตีพิมพ์</div>
-                    <div style={{ marginTop: 8 }}>
-                      {(() => {
-                        const workLink = activeTeacher["ลิงก์ผลงาน"] || activeTeacher["ผลงาน"] || activeTeacher["ผลงานวิชาการ"] || activeTeacher["portfolio"] || activeTeacher["link"] || activeTeacher["url"];
-                        
-                        if (!workLink) {
-                          return <span style={{ fontSize: 13, color: "#bfbfbf" }}>ยังไม่มีข้อมูลผลงานทางวิชาการ</span>;
-                        }
-
-                        const isUrl = String(workLink).startsWith("http://") || String(workLink).startsWith("https://");
-
-                        return isUrl ? (
-                          <a 
-                            href={workLink} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            style={{ 
-                              display: "inline-flex", 
-                              alignItems: "center", 
-                              gap: 6, 
-                              color: "#1890ff", 
-                              fontWeight: 600, 
-                              fontSize: 13,
-                              background: "#e6f7ff",
-                              padding: "6px 12px",
-                              borderRadius: 8,
-                              border: "1px solid #91d5ff"
-                            }}
-                          >
-                            <BookOutlined /> ดูลิงก์ผลงานทางวิชาการ ↗
-                          </a>
-                        ) : (
-                          <div style={{ fontSize: 13, color: "#434343", lineHeight: "1.6", whiteSpace: "pre-line" }}>
-                            {workLink}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </Col>
-
-                  <Col span={24} style={{ borderTop: "1px dashed #e8e8e8", paddingTop: 10 }}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c", textTransform: "uppercase", fontWeight: 600 }}>ช่องทางการติดต่อ</div>
-                    <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
-                      <Col span={12} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#595959" }}>
-                        <MailOutlined style={{ color: "#1890ff" }} />
-                        <span>{activeTeacher["อีเมล"] || activeTeacher["email"] || "ยังไม่ได้ระบุอีเมล"}</span>
-                      </Col>
-                      <Col span={12} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#595959" }}>
-                        <PhoneOutlined style={{ color: "#52c41a" }} />
-                        <span>{activeTeacher["เบอร์โทร"] || activeTeacher["เบอร์โทรศัพท์"] || "ยังไม่ได้ระบุเบอร์ติดต่อ"}</span>
-                      </Col>
-                    </Row>
-                  </Col>
-                </Row>
-              </div>
-            </div>
-          )}
-        </Modal>
+            )}
+          </Modal>
 
         </Content>
       </Layout>
