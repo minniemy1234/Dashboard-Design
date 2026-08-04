@@ -1,6 +1,6 @@
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Layout, Table, Button, Progress, Card, Empty, Spin } from "antd";
 import Sidebar from "../components/Sidebar";
-import { useMemo, useState, useEffect } from "react";
 import {
   BarChart,
   Bar,
@@ -27,8 +27,20 @@ const { Header, Content } = Layout;
 // Palette สีสำหรับกราฟย้อนหลัง
 const YEARLY_COLORS = ["#2f3559", "#7272b0", "#b7a8bd", "#dcd5e5"];
 
+// Pure Helper Functions (วางไว้นอก Component เพื่อป้องกัน re-declaration)
+const cleanString = (str) => {
+  if (!str) return "";
+  return String(str).replace(/\s+/g, "").replace(/['"]+/g, "").trim();
+};
+
+const extractYear = (yearStr) => {
+  if (!yearStr) return "";
+  const match = String(yearStr).match(/\d+/);
+  return match ? match[0] : String(yearStr).trim();
+};
+
 function EvaluationPage() {
-  // สถานะการโหลดข้อมูล (Loading State)
+  // สถานะการโหลดข้อมูล
   const [isLoading, setIsLoading] = useState(false);
 
   // ฟิลเตอร์หลัก (ส่วนบนสุด)
@@ -37,8 +49,8 @@ function EvaluationPage() {
   const [appliedFilters, setAppliedFilters] = useState({ year: "", major: "" });
   
   // ฟิลเตอร์แยกเฉพาะโซนกราฟย้อนหลัง (ทำงานอิสระ 100%)
-  const [trendYearFilter, setTrendYearFilter] = useState("");   // ฟิลเตอร์ปีสำหรับกราฟย้อนหลัง 9 กราฟ
-  const [trendMajorFilter, setTrendMajorFilter] = useState(""); // ฟิลเตอร์สาขาสำหรับกราฟย้อนหลัง 9 กราฟ
+  const [trendYearFilter, setTrendYearFilter] = useState("");   
+  const [trendMajorFilter, setTrendMajorFilter] = useState(""); 
 
   const [rawData, setRawData] = useState([]);
   const [tableYearFilter, setTableYearFilter] = useState("");
@@ -53,11 +65,11 @@ function EvaluationPage() {
         const evalData = parsed["ผลการประเมินคุณภาพหลักสูตร"] || [];
         setRawData(evalData);
         
-        const list = evalData.map(item => {
-          if (!item["ปีการศึกษา"]) return "";
-          const match = String(item["ปีการศึกษา"]).match(/\d+/);
-          return match ? match[0] : String(item["ปีการศึกษา"]).trim();
-        }).filter(Boolean).sort().reverse();
+        const list = evalData
+          .map(item => extractYear(item["ปีการศึกษา"]))
+          .filter(Boolean)
+          .sort()
+          .reverse();
         
         if (list.length > 0) {
           const latestYear = list[0];
@@ -67,7 +79,7 @@ function EvaluationPage() {
           setAppliedFilters({ year: latestYear, major: "" });
         }
       } catch (e) {
-        console.error("Error parsing data", e);
+        console.error("Error parsing dashboardData from localStorage:", e);
       } finally {
         setIsLoading(false);
       }
@@ -75,17 +87,6 @@ function EvaluationPage() {
       setIsLoading(false);
     }
   }, []);
-
-  const cleanString = (str) => {
-    if (!str) return "";
-    return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
-  };
-
-  const extractYear = (yearStr) => {
-    if (!yearStr) return "";
-    const match = String(yearStr).match(/\d+/);
-    return match ? match[0] : String(yearStr).trim();
-  };
 
   // 2. ดึงข้อมูลทำ Dropdown ตัวเลือกหลัก
   const years = useMemo(() => {
@@ -99,20 +100,18 @@ function EvaluationPage() {
   }, [rawData]);
 
   // ฟังก์ชันกดค้นหา/ประมวลผล (สำหรับฟิลเตอร์บนสุด)
-  const handleApplyFilters = () => {
+  const handleApplyFilters = useCallback(() => {
     setIsLoading(true);
-
-    // อัปเดตเฉพาะฟิลเตอร์หลัก แยกขาดจาก trend-filters ชัดเจน
     setAppliedFilters({ year: selectedYear, major: selectedMajor });
 
     setTimeout(() => {
       setIsLoading(false);
-    }, 400);
-  };
+    }, 300);
+  }, [selectedYear, selectedMajor]);
 
   // 3. กรองข้อมูลสำหรับภาพรวมหลัก (KPI Circle และการ์ดสรุปบนสุด)
   const filteredData = useMemo(() => {
-    if (isLoading) return [];
+    if (isLoading || rawData.length === 0) return [];
     return rawData.filter(item => {
       const year = extractYear(item["ปีการศึกษา"]);
       const majorClean = cleanString(item["ชื่อสาขา"]);
@@ -125,19 +124,22 @@ function EvaluationPage() {
 
   // 4. กรองข้อมูลสำหรับตารางรายละเอียดด้านล่างสุด
   const tableData = useMemo(() => {
-    if (isLoading) return [];
-    return rawData.filter(item => {
-      const year = extractYear(item["ปีการศึกษา"]);
-      const majorClean = cleanString(item["ชื่อสาขา"]);
+    if (isLoading || rawData.length === 0) return [];
+    return rawData
+      .filter(item => {
+        const year = extractYear(item["ปีการศึกษา"]);
+        const majorClean = cleanString(item["ชื่อสาขา"]);
 
-      if (tableYearFilter && year !== tableYearFilter) return false;
-      if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return false;
-      return true;
-    }).map(item => ({
-      ...item,
-      year: extractYear(item["ปีการศึกษา"]),
-      major: String(item["ชื่อสาขา"] || "").replace(/\n/g, ' ').trim()
-    }));
+        // ใช้ tableYearFilter หากมีการเลือกปีในตาราง หรือใช้ appliedFilters.major จากการประมวลผล
+        if (tableYearFilter && year !== tableYearFilter) return false;
+        if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return false;
+        return true;
+      })
+      .map(item => ({
+        ...item,
+        year: extractYear(item["ปีการศึกษา"]),
+        major: String(item["ชื่อสาขา"] || "").replace(/\n/g, ' ').trim()
+      }));
   }, [rawData, tableYearFilter, appliedFilters.major, isLoading]);
 
   // 5. คำนวณค่าเฉลี่ยสรุปสำหรับการ์ด KPI
@@ -203,7 +205,7 @@ function EvaluationPage() {
     ];
   }, [filteredData, stats]);
 
-  // 7. โซน 9 กราฟย้อนหลัง (รับค่าคำนวณแยกอิสระจาก trendYearFilter และ trendMajorFilter)
+  // 7. โซน 9 กราฟย้อนหลัง
   const trendChartsData = useMemo(() => {
     if (!rawData || rawData.length === 0) return [];
 
@@ -220,7 +222,7 @@ function EvaluationPage() {
     let targetYears = [];
 
     if (trendYearFilter) {
-      const endYearNum = parseInt(trendYearFilter);
+      const endYearNum = parseInt(trendYearFilter, 10);
       const startYearNum = endYearNum - 3;
       
       for (let y = startYearNum; y <= endYearNum; y++) {
@@ -235,8 +237,10 @@ function EvaluationPage() {
       
       const getAvg = (key) => {
         if (matchYearData.length === 0) return 0;
-        const total = matchYearData.reduce((sum, item) => sum + Number(item[key] || 0), 0);
-        return Number((total / matchYearData.length).toFixed(2));
+        const validItems = matchYearData.filter(i => Number(i[key]) > 0);
+        if (validItems.length === 0) return 0;
+        const total = validItems.reduce((sum, item) => sum + Number(item[key] || 0), 0);
+        return Number((total / validItems.length).toFixed(2));
       };
 
       return {
@@ -266,12 +270,24 @@ function EvaluationPage() {
     { title: "องค์ฯ 4 อาจารย์", dataIndex: "องค์ที่ 4อาจารย์", key: "c4", align: "center", render: v => v || "-" },
     { title: "องค์ฯ 5 หลักสูตร", dataIndex: "องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน", key: "c5", align: "center", render: v => v || "-" },
     { title: "องค์ฯ 6 สิ่งสนับสนุน", dataIndex: "องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้", key: "c6", align: "center", render: v => v || "-" },
-    { title: "คะแนนเฉลี่ยรวม", dataIndex: "คะแนนเฉลี่ยรวม", key: "total", align: "center", render: v => <span style={{ color: "#722ed1", fontWeight: "bold" }}>{v || "-"}</span> },
+    { 
+      title: "คะแนนเฉลี่ยรวม", 
+      dataIndex: "คะแนนเฉลี่ยรวม", 
+      key: "total", 
+      align: "center", 
+      render: (v, record) => {
+        const val = v || record["คะแนนรวม"] || "-";
+        return <span style={{ color: "#722ed1", fontWeight: "bold" }}>{val}</span>;
+      } 
+    },
   ];
 
   // Helper สำหรับวาดการ์ดกราฟย่อย
   const renderTrendMiniCard = (title, dataKey) => (
-    <Card bodyStyle={{ padding: "16px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
+    <Card 
+      styles={{ body: { padding: "16px" } }} 
+      style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}
+    >
       <div style={{ textAlign: "center", marginBottom: 12, minHeight: "36px", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#334155", lineHeight: "1.3" }}>
           {title}
