@@ -1,7 +1,7 @@
 // ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
 import { Layout, Card, Progress, Row, Col, Statistic, Empty } from "antd";
 import Sidebar from "../components/Sidebar";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -30,33 +30,56 @@ function SummaryReportPage() {
   const [qaData, setQaData] = useState([]);
   const [gradEvalData, setGradEvalData] = useState([]);
 
-  useEffect(() => {
+  // ฟังก์ชั่นดึงข้อมูลจาก localStorage
+  const loadStoredData = useCallback(() => {
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
-      const parsed = JSON.parse(stored);
-      
-      // 1. ดึงข้อมูลภาวะการมีงานทำ
-      const targetKey = Object.keys(parsed).find(key => key.includes("งานทำ") || key.includes("Employment"));
-      setRawData(targetKey ? parsed[targetKey] : []);
+      try {
+        const parsed = JSON.parse(stored);
+        
+        // 1. ดึงข้อมูลภาวะการมีงานทำ
+        const targetKey = Object.keys(parsed).find(key => key.includes("งานทำ") || key.includes("Employment"));
+        setRawData(targetKey && Array.isArray(parsed[targetKey]) ? parsed[targetKey] : []);
 
-      // 2. ดึงข้อมูลกราฟแท่งหน่วยงาน
-      if (parsed["employment_chart_data"] && parsed["employment_chart_data"].length > 0) {
-        setUploadedChartRaw(parsed["employment_chart_data"]);
+        // 2. ดึงข้อมูลกราฟแท่งหน่วยงาน
+        if (parsed["employment_chart_data"] && Array.isArray(parsed["employment_chart_data"]) && parsed["employment_chart_data"].length > 0) {
+          setUploadedChartRaw(parsed["employment_chart_data"]);
+        } else {
+          setUploadedChartRaw([]);
+        }
+
+        // 3. ดึงข้อมูลผลการประเมินคุณภาพหลักสูตร
+        const qaKey = Object.keys(parsed).find(key => key.includes("หลักสูตร") || key.includes("ประเมินคุณภาพ"));
+        setQaData(qaKey && Array.isArray(parsed[qaKey]) ? parsed[qaKey] : []);
+
+        // 4. ดึงข้อมูลความพึงพอใจบัณฑิต
+        const gradKey = Object.keys(parsed).find(key => key.includes("บัณฑิต") && key.includes("ประเมิน"));
+        setGradEvalData(gradKey && Array.isArray(parsed[gradKey]) ? parsed[gradKey] : []);
+      } catch (error) {
+        console.error("Error parsing dashboardData from localStorage:", error);
       }
-
-      // 3. ดึงข้อมูลผลการประเมินคุณภาพหลักสูตร
-      const qaKey = Object.keys(parsed).find(key => key.includes("หลักสูตร") || key.includes("ประเมินคุณภาพ"));
-      setQaData(qaKey ? parsed[qaKey] : []);
-
-      // 4. ดึงข้อมูลความพึงพอใจบัณฑิต
-      const gradKey = Object.keys(parsed).find(key => key.includes("บัณฑิต") && key.includes("ประเมิน"));
-      setGradEvalData(gradKey ? parsed[gradKey] : []);
     }
   }, []);
 
+  useEffect(() => {
+    loadStoredData();
+
+    // ฟัง Event เมื่อมีการอัปเดตข้อมูลจาก Tab/Window อื่น
+    const handleStorageChange = (e) => {
+      if (e.key === "dashboardData") {
+        loadStoredData();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [loadStoredData]);
+
   // สกัดตัวเลข Summary รวมของคณะ (ใช้ข้อมูลปีล่าสุดในระบบเป็นหลัก)
   const statsSummary = useMemo(() => {
-    if (rawData.length === 0) return { rate: "0.00", totalGrads: 0, working: 0 };
+    if (!rawData || rawData.length === 0) return { rate: "0.00", totalGrads: 0, working: 0, year: "ล่าสุด" };
     
     // กรองเอาเฉพาะแถวสรุป "ทั้งหมด" ของคณะ
     const totalRows = rawData.filter(item => String(item["ชื่อสาขา"] || "").includes("ทั้งหมด"));
@@ -64,7 +87,8 @@ function SummaryReportPage() {
 
     const cleanVal = (key) => {
       const foundKey = Object.keys(latestRow).find(k => k.replace(/\s+/g, '').includes(key));
-      return foundKey ? Number(latestRow[foundKey] || 0) : 0;
+      const val = foundKey ? Number(latestRow[foundKey] || 0) : 0;
+      return isNaN(val) ? 0 : val;
     };
 
     const q2 = cleanVal("ผู้สำเร็จการศึกษา");
@@ -76,10 +100,16 @@ function SummaryReportPage() {
 
     // คำนวณตามสูตร สป.อว.
     const divisor = q2 - q5 - q6 - q7 - q8;
-    const rate = divisor > 0 ? ((q3_direct) / divisor) * 100 : 0;
+    let calculatedRate = 0;
+    if (divisor > 0 && q3_direct >= 0) {
+      calculatedRate = (q3_direct / divisor) * 100;
+    }
+
+    if (calculatedRate > 100) calculatedRate = 100;
+    if (isNaN(calculatedRate) || calculatedRate < 0) calculatedRate = 0;
 
     return {
-      rate: rate > 100 ? "100.00" : rate.toFixed(2),
+      rate: calculatedRate.toFixed(2),
       totalGrads: q2,
       working: q3_direct,
       year: latestRow["ปีการศึกษา"] || latestRow["ปี"] || "ล่าสุด"
@@ -90,10 +120,12 @@ function SummaryReportPage() {
   const chartData = useMemo(() => {
     if (!uploadedChartRaw || uploadedChartRaw.length === 0) return [];
     const firstRow = uploadedChartRaw[0];
+    if (!firstRow) return [];
+
     const colorPalette = ["#0077b6", "#00b4d8", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51"];
 
     return Object.keys(firstRow).map((key) => ({
-      name: key.replace("ทำงานใน", "").replace("จำนวน", ""), // ตัดคำให้สั้นกระชับขึ้นสำหรับหน้ารายงานสรุป
+      name: key.replace("ทำงานใน", "").replace("จำนวน", "").trim(), // ตัดคำให้สั้นกระชับขึ้นสำหรับหน้ารายงานสรุป
       value: Number(firstRow[key] || 0)
     })).sort((a, b) => b.value - a.value).map((item, index) => ({
       ...item,
@@ -103,19 +135,19 @@ function SummaryReportPage() {
 
   // คำนวณคะแนนประเมินหลักสูตรและบัณฑิตเฉลี่ยรวม
   const qaSummary = useMemo(() => {
-    if (qaData.length === 0) return "0.00";
-    const foundScores = qaData.map(item => Number(item["คะแนนเฉลี่ยรวม"] || item["คะแนนรวม"] || 0)).filter(Boolean);
+    if (!qaData || qaData.length === 0) return "0.00";
+    const foundScores = qaData.map(item => Number(item["คะแนนเฉลี่ยรวม"] || item["คะแนนรวม"] || 0)).filter(val => !isNaN(val) && val > 0);
     if (foundScores.length === 0) return "0.00";
     const avg = foundScores.reduce((a, b) => a + b, 0) / foundScores.length;
     return avg.toFixed(2);
   }, [qaData]);
 
   const gradSatisfaction = useMemo(() => {
-    if (gradEvalData.length === 0) return "0.00";
+    if (!gradEvalData || gradEvalData.length === 0) return "0.00";
     // กรองเอาเฉพาะหัวข้อ "รวม"
     const totalRows = gradEvalData.filter(item => String(item["หัวข้อ"] || "").includes("รวม"));
     const targetRows = totalRows.length > 0 ? totalRows : gradEvalData;
-    const foundScores = targetRows.map(item => Number(item["ค่าเฉลี่ยความพึงพอใจ"] || 0)).filter(Boolean);
+    const foundScores = targetRows.map(item => Number(item["ค่าเฉลี่ยความพึงพอใจ"] || 0)).filter(val => !isNaN(val) && val > 0);
     if (foundScores.length === 0) return "0.00";
     return (foundScores.reduce((a, b) => a + b, 0) / foundScores.length).toFixed(2);
   }, [gradEvalData]);
@@ -132,7 +164,7 @@ function SummaryReportPage() {
     <Layout style={{ minHeight: "100vh" }}>
       <Sidebar />
       <Layout>
-        {/* ส่วนหัวข้อ (Header): จัดช่องไฟด้วย gap: "4px" คลีน สวย โปร่งตา เข้าเซตกับทุกหน้าค่ะ */}
+        {/* ส่วนหัวข้อ (Header) */}
         <Header style={{ background: "white", padding: "16px 24px", height: "auto", borderBottom: "1px solid #f0f0f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600", color: "#1f1f1f", lineHeight: "1.2", display: "flex", alignItems: "center" }}>
@@ -216,12 +248,12 @@ function SummaryReportPage() {
           <Row gutter={[24, 24]}>
             <Col xs={24} lg={15}>
               <Card title={<span style={{ fontWeight: 600 }}><PieChartOutlined style={{ marginRight: 6, color: "#00b4d8" }} /> สรุปประเภทหน่วยงานที่บัณฑิตเข้าทำงานหลัก</span>} style={cardStyle}>
-                <div style={{ height: 320 }}>
+                <div style={{ height: 320, minHeight: 0 }}>
                   {chartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 60, left: 10, bottom: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} style={{ fontSize: 12, fontWeight: 500, fill: "#475569" }} width={90} />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} style={{ fontSize: 12, fontWeight: 500, fill: "#475569" }} width={100} />
                         <XAxis type="number" axisLine={false} tickLine={false} style={{ fontSize: 11 }} />
                         <Tooltip formatter={(value) => [`${value} คน`, 'จำนวนคน']} cursor={{ fill: '#f8fafc' }} />
                         <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
