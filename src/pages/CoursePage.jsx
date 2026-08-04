@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Layout, Button, Empty, Card, Row, Col, Typography, Tag } from "antd";
+import { Layout, Button, Empty, Typography, Tag } from "antd";
 import {
   BookOutlined,
   SearchOutlined,
@@ -8,6 +8,10 @@ import {
   AppstoreOutlined,
 } from "@ant-design/icons";
 import Sidebar from "../components/Sidebar";
+
+// 🟢 Import Firebase DB และ Firestore Real-time Listener
+import { db } from "../firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 
 const { Header, Content } = Layout;
 const { Text } = Typography;
@@ -25,16 +29,31 @@ function CoursePage() {
 
   const [dashboardData, setDashboardData] = useState(null);
 
-  // 📦 โหลดข้อมูลจาก LocalStorage
+  // 🟢 ดึงข้อมูลจาก Firebase Firestore แบบ Real-time (onSnapshot)
   useEffect(() => {
-    const stored = localStorage.getItem("dashboardData");
-    if (stored) {
-      try {
-        setDashboardData(JSON.parse(stored));
-      } catch (e) {
-        console.error("Error parsing dashboard data", e);
-      }
+    if (!db) {
+      console.error("Firebase DB is not initialized");
+      return;
     }
+
+    const docRef = doc(db, "dashboardData", "main");
+
+    const unsubscribe = onSnapshot(
+      docRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setDashboardData(data);
+        } else {
+          console.log("ยังไม่มีข้อมูล dashboardData ในระบบ Firestore");
+        }
+      },
+      (error) => {
+        console.error("Firebase Course Listener Error:", error);
+      }
+    );
+
+    return () => unsubscribe();
   }, []);
 
   const cleanString = (str) => {
@@ -256,7 +275,7 @@ function CoursePage() {
                       key={index}
                       style={{
                         display: "flex",
-                        justify: "space-between",
+                        justifyContent: "space-between",
                         alignItems: "center",
                         padding: "16px 20px",
                         marginBottom: 12,
