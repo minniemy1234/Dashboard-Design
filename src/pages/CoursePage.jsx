@@ -9,7 +9,7 @@ import {
 } from "@ant-design/icons";
 import Sidebar from "../components/Sidebar";
 
-// 🟢 Import Firebase DB และ Firestore Real-time Listener
+// Import Firebase DB และ Firestore Real-time Listener
 import { db } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
@@ -29,7 +29,7 @@ function CoursePage() {
 
   const [dashboardData, setDashboardData] = useState(null);
 
-  // 🟢 ดึงข้อมูลจาก Firebase Firestore แบบ Real-time (onSnapshot)
+  // ดึงข้อมูลจาก Firebase Firestore แบบ Real-time
   useEffect(() => {
     if (!db) {
       console.error("Firebase DB is not initialized");
@@ -75,7 +75,7 @@ function CoursePage() {
     return match ? match[0] : String(yearStr).trim();
   };
 
-  // 🔍 ดึง Array ข้อมูลรายวิชาจาก dashboardData
+  // ดึง Array ข้อมูลรายวิชาจาก dashboardData
   const rawCourses = useMemo(() => {
     if (!dashboardData) return [];
     const targetKey = Object.keys(dashboardData).find(
@@ -100,7 +100,7 @@ function CoursePage() {
     return [...new Set(list)].filter(Boolean).sort();
   }, [rawCourses]);
 
-  // 🎯 กรองรายการวิชาตาม Filters
+  // กรองรายการวิชาตาม Filters
   const filteredCourses = useMemo(() => {
     return rawCourses.filter((item) => {
       const year = extractYear(item["ปีการศึกษา"] || item["ปี"]);
@@ -115,7 +115,7 @@ function CoursePage() {
     });
   }, [rawCourses, appliedFilters]);
 
-  // 📊 คำนวณสรุปยอดรายวิชา (แยก ป.ตรี / ป.โท จากรหัสที่ขึ้นต้นด้วย 'X')
+  // คำนวณสรุปยอดรายวิชา (แยก ป.ตรี / ป.โท จากรหัสที่ขึ้นต้นด้วย 'X')
   const courseStats = useMemo(() => {
     let bachelor = 0;
     let master = 0;
@@ -216,7 +216,7 @@ function CoursePage() {
             </div>
           </div>
 
-          {/* KPI ZONE - ดีไซน์การ์ดหลากสีสไตล์สถิติหลัก */}
+          {/* KPI ZONE */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20, marginBottom: 24 }}>
             
             {/* สรุปรายวิชาทั้งหมด */}
@@ -254,7 +254,7 @@ function CoursePage() {
 
           </div>
 
-          {/* LIST CARD ZONE - การ์ดรายการแบบคลีน ตารางอ่านง่าย มี Tag แยกระดับ */}
+          {/* LIST CARD ZONE */}
           <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <BookOutlined style={{ fontSize: 18, color: "#1890ff" }} />
