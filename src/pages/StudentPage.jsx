@@ -219,14 +219,14 @@ function StudentPage() {
               <Col xs={24} md={8}>
                 <div style={{ marginBottom: 6, fontWeight: 600 }}><FilterOutlined /> สาขาวิชา</div>
                 <select value={selectedMajor} onChange={(e) => setSelectedMajor(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d9d9d9", outline: "none" }}>
-                  <option value="">สาขาวิชา</option>
+                  <option value="">ทั้งหมด</option>
                   {majorsList.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
               </Col>
               <Col xs={24} md={6}>
                 <div style={{ marginBottom: 6, fontWeight: 600 }}>ปีการศึกษา</div>
                 <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ width: "100%", padding: "10px", borderRadius: 8, border: "1px solid #d9d9d9", outline: "none" }}>
-                  <option value="">ปีการศึกษา</option>
+                  <option value="">ทั้งหมด</option>
                   {yearsList.map(y => <option key={y} value={y}>ปี {y}</option>)}
                 </select>
               </Col>
@@ -335,7 +335,7 @@ function StudentPage() {
                 </Col>
               </Row>
 
-              {/* 🎓 กรอบแสดงจำแนกระดับการศึกษา: ปริญญาตรี VS ปริญญาโท (ต่อจาก KPI) */}
+              {/* 🎓 กรอบแสดงจำแนกระดับการศึกษา: ปริญญาตรี VS ปริญญาโท */}
               <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 <Col xs={24} md={12}>
                   <div style={{ background: "#ffffff", padding: 20, borderRadius: 16, border: "1px solid #0284c7", boxShadow: "0 2px 8px rgba(2, 132, 199, 0.08)", position: "relative" }}>
@@ -480,7 +480,7 @@ function StudentPage() {
                     <Table 
                       columns={columns} 
                       dataSource={filteredRetainTable} 
-                      rowKey={(record, idx) => `student-pie-page-${idx}`}
+                      rowKey={(record, idx) => `${record["รหัสสาขา"] || record["ชื่อสาขา"] || "row"}-${record["ปีที่สำรวจ"] || idx}`}
                       pagination={{ 
                         defaultPageSize: 5,
                         pageSizeOptions: ["10", "20", "30"],
