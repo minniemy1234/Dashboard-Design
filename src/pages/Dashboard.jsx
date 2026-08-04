@@ -1,6 +1,6 @@
 import { Layout, Button, Empty, Progress, Card, Row, Col } from "antd"; 
 import Sidebar from "../components/Sidebar";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -24,17 +24,18 @@ import {
   CrownOutlined,
 } from "@ant-design/icons";
 
+import { db } from "../firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+
 const { Header, Content } = Layout;
 
 function Dashboard() {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMajor, setSelectedMajor] = useState("");
 
-  // 📊 ฟิลเตอร์สำหรับแผนภูมิแท่ง
   const [graphEntryYear, setGraphEntryYear] = useState(""); 
   const [graphSurveyYear, setGraphSurveyYear] = useState(""); 
 
-  // ปรับเหลือเฉพาะ Filter ปี และ สาขา
   const [appliedFilters, setAppliedFilters] = useState({
     year: "",
     major: ""
@@ -42,22 +43,49 @@ function Dashboard() {
 
   const [dashboardData, setDashboardData] = useState(null);
 
-  const loadDashboardData = () => {
-    const stored = localStorage.getItem("dashboardData");
-    if (stored) {
+  // 🔄 โหลดข้อมูลจาก localStorage
+  const loadDashboardData = useCallback(() => {
+    const localData = localStorage.getItem("dashboardData");
+    if (localData) {
       try {
-        setDashboardData(JSON.parse(stored));
-      } catch (e) {
-        console.error("Error parsing dashboard data", e);
+        const parsed = JSON.parse(localData);
+        setDashboardData(parsed);
+      } catch (err) {
+        console.error("Error parsing local dashboardData:", err);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDashboardData();
-    window.addEventListener("storage", loadDashboardData);
-    return () => window.removeEventListener("storage", loadDashboardData);
-  }, []);
+
+    const handleStorageChange = () => {
+      loadDashboardData();
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    let unsubscribe = () => {};
+    if (db) {
+      const docRef = doc(db, "dashboardData", "main");
+      unsubscribe = onSnapshot(
+        docRef,
+        (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setDashboardData(prev => prev ? { ...data, ...prev } : data);
+          }
+        },
+        (error) => {
+          console.error("Firebase Dashboard Listener Error:", error);
+        }
+      );
+    }
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      unsubscribe();
+    };
+  }, [loadDashboardData]);
 
   const cleanString = (str) => {
     if (!str) return "";
@@ -80,7 +108,7 @@ function Dashboard() {
 
   const retain = useMemo(() => {
     if (!dashboardData) return [];
-    return dashboardData["นิสิตคงอยู่"] || dashboardData["ข้อมูลนิสิตคงอยู่"] || dashboardData["จำนวนนิสิตคงอยู่"] || [];
+    return dashboardData["นิสิตคงอยู่"] || dashboardData["ข้อมูลนิสิตคงอยู่"] || dashboardData["จำนวนนิสิตคงอยู่"] || dashboardData["student_retain_data"] || [];
   }, [dashboardData]);
 
   const entryYears = useMemo(() => {
@@ -93,7 +121,6 @@ function Dashboard() {
     return [...new Set(list)].filter(Boolean).sort().reverse();
   }, [retain]);
 
-  // ตั้งค่า Default เลือกปีล่าสุดให้ฟิลเตอร์แผนภูมิเมื่อโหลดหน้าแรก
   useEffect(() => {
     if (entryYears.length > 0 && !graphEntryYear) {
       setGraphEntryYear(entryYears[0]);
@@ -118,87 +145,87 @@ function Dashboard() {
   };
 
   // ==========================================
-  // 🎯 LOGIC คำนวณอัตราภาวะการมีงานทำ (ปรับปรุงสูตรใหม่ตาม DAX)
+  // 🎯 LOGIC คำนวณกราฟวงกลมให้ตรงกับหน้า "ภาวะการมีงานทำ" 100% (แก้ไขสูตรที่นี่)
   // ==========================================
   const employmentTotals = useMemo(() => {
     if (!dashboardData) return { rate: 0, employmentPerRespondentsRate: 0 };
 
+    // ค้นหา Key ภาวะการมีงานทำ
     const targetKey = Object.keys(dashboardData).find(key => 
-      key.includes("งานทำ") || key.includes("Employment")
+      key.includes("งานทำ") || key.includes("Employment") || key.includes("employment")
     );
     const empData = targetKey ? dashboardData[targetKey] : [];
 
-    const processed = empData
-      .filter(item => {
-        const majorName = String(item["ชื่อสาขา"] || "");
-        return majorName && !majorName.includes("ทั้งหมด");
-      })
-      .map(item => {
-        const year = extractYear(item["ปีการศึกษา"] || item["ปี"]);
-        const majorRaw = String(item["ชื่อสาขา"] || item["สาขาวิชา"] || "").replace(/\n/g, ' ').trim();
-        const majorClean = cleanString(cleanMajorName(majorRaw));
+    if (!Array.isArray(empData) || empData.length === 0) {
+      return { rate: 0, employmentPerRespondentsRate: 0 };
+    }
 
-        const getVal = (exactKey) => {
-          const foundKey = Object.keys(item).find(k => cleanString(k) === cleanString(exactKey));
-          return foundKey ? Number(item[foundKey] || 0) : 0;
-        };
+    let totalRespondents = 0;          // ผู้ตอบแบบสำรวจรวม
+    let totalEmployedStaff = 0;        // ได้งานทำประจำ (หน่วยงานรัฐ/เอกชน/รัฐวิสาหกิจ/ต่างประเทศ/องค์กรอื่น)
+    let totalSelfEmployed = 0;         // อาชีพอิสระ/ธุรกิจส่วนตัว
+    let totalExcluded = 0;             // กลุ่มหักออก (มีงานทำเดิม/ศึกษาต่อ/บวช/เกณฑ์ทหาร)
 
-        const respondents = getVal("ผู้บันทึกข้อมูลจำนวน") || getVal("ผู้สำเร็จการศึกษา"); 
-        const gov = getVal("ทำงานในหน่วยงานรัฐ จำนวน");
-        const state = getVal("ทำงานในหน่วยงานรัฐวิสาหกิจ จำนวน");
-        const privateOrg = getVal("ทำงานในหน่วยงานเอกชน จำนวน");
-        const inter = getVal("ทำงานในองค์การต่างประเทศ/ระหว่างประเทศ จำนวน");
-        const otherOrg = getVal("ทำงานในองค์กรอื่นๆ จำนวน");
-        
-        const employedStaff = gov + state + privateOrg + inter + otherOrg;
-        const selfEmployed = getVal("ทำงาน ธุรกิจส่วนตัว/อิสระ จำนวน");
+    empData.forEach(item => {
+      const majorRaw = String(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"] || "").replace(/\n/g, ' ').trim();
+      const itemYear = extractYear(item["ปีการศึกษา"] || item["ปี"] || item["ปีที่สำรวจ"]);
+      const majorClean = cleanString(cleanMajorName(majorRaw));
 
-        const hasJobBefore = getVal("มีงานทำเดิม");
-        const studyMore = getVal("ศึกษาต่อ");
-        const ordain = getVal("บัณฑิตบวช");
-        const military = getVal("บัณฑิตเกณฑ์ทหาร");
-        const excluded = hasJobBefore + studyMore + ordain + military;
+      // กรองรวม/ทั้งหมด ออก
+      if (majorRaw.includes("ทั้งหมด") || majorRaw.includes("รวม")) return;
 
-        const employedStaffAndSelf = employedStaff + selfEmployed;
+      // กรองตาม Year & Major ที่เลือกใน Filter
+      if (appliedFilters.year && itemYear !== appliedFilters.year) return;
+      if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return;
 
-        return {
-          year,
-          majorClean,
-          respondents,
-          employedStaff,
-          employedStaffAndSelf,
-          excluded
-        };
-      })
-      .filter(item => {
-        if (appliedFilters.year && item.year !== appliedFilters.year) return false;
-        if (appliedFilters.major && item.majorClean !== cleanString(appliedFilters.major)) return false;
-        return true;
-      });
+      // ฟังก์ชันช่วยอ่านค่าคอลัมน์
+      const getVal = (exactKey) => {
+        const foundKey = Object.keys(item).find(k => cleanString(k) === cleanString(exactKey));
+        return foundKey ? Number(item[foundKey] || 0) : 0;
+      };
 
-    let totalRespondents = 0;
-    let totalEmployedStaff = 0;
-    let totalEmployedStaffAndSelf = 0;
-    let totalExcluded = 0;
+      // 1. จำนวนผู้ตอบแบบสำรวจ
+      const respondents = getVal("ผู้บันทึกข้อมูลจำนวน") || getVal("ผู้ตอบแบบสำรวจ") || getVal("จำนวนผู้ตอบ") || 0;
 
-    processed.forEach(item => {
-      totalRespondents += item.respondents;
-      totalEmployedStaff += item.employedStaff;
-      totalEmployedStaffAndSelf += item.employedStaffAndSelf;
-      totalExcluded += item.excluded;
+      // 2. ได้งานทำประจำในหน่วยงาน
+      const gov = getVal("ทำงานในหน่วยงานรัฐ จำนวน");
+      const state = getVal("ทำงานในหน่วยงานรัฐวิสาหกิจ จำนวน");
+      const privateOrg = getVal("ทำงานในหน่วยงานเอกชน จำนวน");
+      const inter = getVal("ทำงานในองค์การต่างประเทศ/ระหว่างประเทศ จำนวน");
+      const otherOrg = getVal("ทำงานในองค์กรอื่นๆ จำนวน");
+      const empStaff = gov + state + privateOrg + inter + otherOrg;
+
+      // 3. ประกอบอาชีพอิสระ / ธุรกิจส่วนตัว
+      const selfEmp = getVal("ทำงาน ธุรกิจส่วนตัว/อิสระ จำนวน");
+
+      // 4. กลุ่มหักออกตามเกณฑ์ประกันคุณภาพ (QA)
+      const hasJobBefore = getVal("มีงานทำเดิม");
+      const studyMore = getVal("ศึกษาต่อ");
+      const ordain = getVal("บัณฑิตบวช");
+      const military = getVal("บัณฑิตเกณฑ์ทหาร");
+      const excluded = hasJobBefore + studyMore + ordain + military;
+
+      // รวมผล
+      totalRespondents += respondents;
+      totalEmployedStaff += empStaff;
+      totalSelfEmployed += selfEmp;
+      totalExcluded += excluded;
     });
 
-    const totalDivisor = totalRespondents - totalExcluded;
-    const finalRate = totalDivisor > 0 ? (totalEmployedStaffAndSelf / totalDivisor) * 100 : 0;
-    const employmentPerRespondentsRate = totalRespondents > 0 ? (totalEmployedStaff / totalRespondents) * 100 : 0;
+    // 🧮 สูตรคำนวณวงกลม 1: DAX (งานประจำ + งานอิสระ) ÷ (ผู้ตอบ - กลุ่มหักออก)
+    const divisorDAX = totalRespondents - totalExcluded;
+    const totalEmployedStaffAndSelf = totalEmployedStaff + totalSelfEmployed;
+    const daxRate = divisorDAX > 0 ? (totalEmployedStaffAndSelf / divisorDAX) * 100 : 0;
+
+    // 🧮 สูตรคำนวณวงกลม 2: ได้งานทำประจำ ÷ ผู้ตอบแบบสำรวจทั้งหมด
+    const normalRate = totalRespondents > 0 ? (totalEmployedStaff / totalRespondents) * 100 : 0;
 
     return {
-      rate: Number(finalRate.toFixed(2)),
-      employmentPerRespondentsRate: Number(employmentPerRespondentsRate.toFixed(2))
+      rate: Number(daxRate.toFixed(2)),
+      employmentPerRespondentsRate: Number(normalRate.toFixed(2))
     };
   }, [dashboardData, appliedFilters]);
 
-  // 📊 คำนวณสถิติต่างๆ รวมทั้งแยก ปริญญาตรี และ ปริญญาโท
+  // สถิติการศึกษาและอาจารย์
   const studentBreakdown = useMemo(() => {
     let admitted = 0;
     let retained = 0;
@@ -210,21 +237,23 @@ function Dashboard() {
     let graduates = 0;
 
     if (dashboardData) {
-      // ดึงข้อมูลอาจารย์ครอบคลุมทุก Key
       const teacher = 
         dashboardData["ข้อมูลอาจารย์"] || 
         dashboardData["อาจารย์สาขา"] || 
         dashboardData["อาจารย์"] || 
+        dashboardData["อาจารย์ประจำสาขา"] ||
         [];
 
-      const employment = dashboardData["ภาวะการมีงานทำ"] || [];
+      const employmentKey = Object.keys(dashboardData).find(k => k.includes("งานทำ") || k.includes("Employment"));
+      const employment = employmentKey ? dashboardData[employmentKey] : [];
       
-      const filteredEmployment = employment.filter((item) => {
-        const yearMatch = !appliedFilters.year || extractYear(item["ปีการศึกษา"]) === appliedFilters.year;
-        const majorMatch = !appliedFilters.major || cleanString(cleanMajorName(item["ชื่อสาขา"])) === cleanString(appliedFilters.major);
+      const filteredEmployment = Array.isArray(employment) ? employment.filter((item) => {
+        const yearMatch = !appliedFilters.year || extractYear(item["ปีการศึกษา"] || item["ปี"]) === appliedFilters.year;
+        const majorMatch = !appliedFilters.major || cleanString(cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"])) === cleanString(appliedFilters.major);
         return yearMatch && majorMatch;
-      });
-      graduates = filteredEmployment.reduce((sum, item) => sum + Number(item["ผู้สำเร็จการศึกษา"] || 0), 0);
+      }) : [];
+      
+      graduates = filteredEmployment.reduce((sum, item) => sum + Number(item["ผู้สำเร็จการศึกษา"] || item["จำนวนผู้สำเร็จการศึกษา"] || 0), 0);
 
       retain.forEach((item) => {
         const retMajorClean = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
@@ -252,27 +281,27 @@ function Dashboard() {
         }
       });
 
-      // คำนวณจำนวนอาจารย์ประจำสาขา
-      const validTeachers = teacher.filter(item => {
-        const teacherMajor = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-        const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "";
-        const cleanName = String(name).trim();
-
-        const majorMatch = !appliedFilters.major || cleanString(teacherMajor) === cleanString(appliedFilters.major);
-        if (!majorMatch) return false;
-
-        const isValid = cleanName !== "" && cleanName !== "-" && !cleanName.includes("รวม") && !cleanName.includes("จำนวน");
-        return isValid;
-      });
-
-      const uniqueTeacherNames = new Set(
-        validTeachers.map(item => {
+      if (Array.isArray(teacher)) {
+        const validTeachers = teacher.filter(item => {
+          const teacherMajor = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
           const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "";
-          return String(name).replace(/\s+/g, '').trim();
-        })
-      );
+          const cleanName = String(name).trim();
 
-      lecturers = uniqueTeacherNames.size;
+          const majorMatch = !appliedFilters.major || cleanString(teacherMajor) === cleanString(appliedFilters.major);
+          if (!majorMatch) return false;
+
+          return cleanName !== "" && cleanName !== "-" && !cleanName.includes("รวม") && !cleanName.includes("จำนวน");
+        });
+
+        const uniqueTeacherNames = new Set(
+          validTeachers.map(item => {
+            const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "";
+            return String(name).replace(/\s+/g, '').trim();
+          })
+        );
+
+        lecturers = uniqueTeacherNames.size;
+      }
     }
 
     return {
