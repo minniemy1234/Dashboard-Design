@@ -2,7 +2,7 @@ import { Layout, Table, Button, Progress, Card, Empty } from "antd";
 import Sidebar from "../components/Sidebar";
 import { useMemo, useState, useEffect } from "react";
 import {
-  BarChart,
+  ComposedChart, // 👈 เปลี่ยนจาก BarChart เพื่อรองรับ Line ซ้อนบน Bar
   Bar,
   XAxis,
   Line,
@@ -11,7 +11,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  LabelList
+  LabelList,
+  BarChart
 } from "recharts";
 import { 
   SearchOutlined, 
@@ -82,7 +83,7 @@ function GraduateQualityPage() {
       const topic = item["หัวข้อ"] || "";
       const score = Number(item["ค่าเฉลี่ยความพึงพอใจ"] || 0);
 
-      if (appliedFilters.year && year !== appliedFilters.year) return;
+      if (appliedFilters.year && year !== extractYear(appliedFilters.year)) return;
       if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return;
 
       const key = `${year}-${majorClean}`;
@@ -112,7 +113,7 @@ function GraduateQualityPage() {
       const topic = item["หัวข้อ"] || "";
       const score = Number(item["ค่าเฉลี่ยความพึงพอใจ"] || 0);
 
-      if (tableYearFilter && year !== tableYearFilter) return;
+      if (tableYearFilter && year !== extractYear(tableYearFilter)) return;
       if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return;
 
       const key = `${year}-${majorClean}`;
@@ -174,9 +175,7 @@ function GraduateQualityPage() {
     { name: "ไอที/วิเคราะห์", score: Number(stats.d5) },
   ];
 
-  // =========================================================================
-  // ⚡ 6. ระบบประมวลผลข้อมูลแนวโน้มย้อนหลังล็อกเป๊ะที่ 4 ปี (TQF 5 ด้าน + คะแนนรวม)
-  // =========================================================================
+  // 6. ระบบประมวลผลข้อมูลแนวโน้มย้อนหลังล็อกเป๊ะที่ 4 ปี
   const trendChartsData = useMemo(() => {
     let filtered = rawData;
 
@@ -368,7 +367,6 @@ function GraduateQualityPage() {
                       style={{ fill: '#475569', fontSize: 12, fontWeight: 'bold' }} 
                       formatter={(val) => Number(val).toFixed(2)}
                     />
-                    {/* 🌈 ดึงสีตาม ลำดับ index จากชุดสี tqfColors */}
                     {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={tqfColors[index % tqfColors.length]} />
                     ))}
@@ -378,9 +376,7 @@ function GraduateQualityPage() {
             </div>
           </div>
 
-          {/* =========================================================================
-              📈 7. แถบตัวกรองแนวโน้มคุณภาพบัณฑิตย้อนหลัง
-              ========================================================================= */}
+          {/* 7. แถบตัวกรองแนวโน้มคุณภาพบัณฑิตย้อนหลัง */}
           <div style={{
             background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
             padding: "24px 32px",
@@ -419,9 +415,7 @@ function GraduateQualityPage() {
             </div>
           </div>
 
-          {/* =========================================================================
-              📊 8. โซนแสดงกราฟแนวโน้มย้อนหลัง 6 ด้านตามมาตรฐาน TQF
-              ========================================================================= */}
+          {/* 8. โซนแสดงกราฟแนวโน้มย้อนหลัง 6 ด้านตามมาตรฐาน TQF */}
           {(() => {
             const yearlyColors = ["#173b6f", "#3071a4", "#87b8e5", "#b8aab4"];
             const currentRangeText = "ย้อนหลัง 4 ปี";
@@ -440,14 +434,14 @@ function GraduateQualityPage() {
                     <div style={{ height: 190, width: "100%" }}>
                       {trendChartsData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
+                          <ComposedChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
                             <XAxis 
-                            dataKey="year" 
-                            tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                            tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                            axisLine={false} 
-                            tickLine={false} 
+                              dataKey="year" 
+                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
+                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
+                              axisLine={false} 
+                              tickLine={false} 
                             />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[0, 5]} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value}`, 'คะแนนเฉลี่ยรวม']} />
@@ -458,7 +452,7 @@ function GraduateQualityPage() {
                               <LabelList dataKey="total" position="top" style={{ fill: '#475569', fontSize: 11, fontWeight: '600' }} formatter={(v) => Number(v).toFixed(2)} />
                             </Bar>
                             <Line type="linear" dataKey="total" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }} />
-                          </BarChart>
+                          </ComposedChart>
                         </ResponsiveContainer>
                       ) : (
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูล" /></div>
@@ -476,14 +470,14 @@ function GraduateQualityPage() {
                     <div style={{ height: 190, width: "100%" }}>
                       {trendChartsData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
+                          <ComposedChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
                             <XAxis 
-                            dataKey="year" 
-                            tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                            tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                            axisLine={false} 
-                            tickLine={false} 
+                              dataKey="year" 
+                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
+                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
+                              axisLine={false} 
+                              tickLine={false} 
                             />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[0, 5]} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value}`, 'คุณธรรม จริยธรรม']} />
@@ -494,7 +488,7 @@ function GraduateQualityPage() {
                               <LabelList dataKey="d1" position="top" style={{ fill: '#475569', fontSize: 11, fontWeight: '600' }} formatter={(v) => Number(v).toFixed(2)} />
                             </Bar>
                             <Line type="linear" dataKey="d1" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }} />
-                          </BarChart>
+                          </ComposedChart>
                         </ResponsiveContainer>
                       ) : (
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูล" /></div>
@@ -512,15 +506,15 @@ function GraduateQualityPage() {
                     <div style={{ height: 190, width: "100%" }}>
                       {trendChartsData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
+                          <ComposedChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
-                           <XAxis 
-                           dataKey="year" 
-                           tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                           tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                           axisLine={false} 
-                           tickLine={false} 
-                           />
+                            <XAxis 
+                              dataKey="year" 
+                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
+                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
+                              axisLine={false} 
+                              tickLine={false} 
+                            />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[0, 5]} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value}`, 'ด้านความรู้']} />
                             <Bar dataKey="d2" radius={[6, 6, 0, 0]} barSize={24}>
@@ -530,7 +524,7 @@ function GraduateQualityPage() {
                               <LabelList dataKey="d2" position="top" style={{ fill: '#475569', fontSize: 11, fontWeight: '600' }} formatter={(v) => Number(v).toFixed(2)} />
                             </Bar>
                             <Line type="linear" dataKey="d2" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }} />
-                          </BarChart>
+                          </ComposedChart>
                         </ResponsiveContainer>
                       ) : (
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูล" /></div>
@@ -548,14 +542,14 @@ function GraduateQualityPage() {
                     <div style={{ height: 190, width: "100%" }}>
                       {trendChartsData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
+                          <ComposedChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
                             <XAxis 
-                            dataKey="year" 
-                            tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                            tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                            axisLine={false} 
-                            tickLine={false} 
+                              dataKey="year" 
+                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
+                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
+                              axisLine={false} 
+                              tickLine={false} 
                             />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[0, 5]} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value}`, 'ทักษะทางปัญญา']} />
@@ -566,7 +560,7 @@ function GraduateQualityPage() {
                               <LabelList dataKey="d3" position="top" style={{ fill: '#475569', fontSize: 11, fontWeight: '600' }} formatter={(v) => Number(v).toFixed(2)} />
                             </Bar>
                             <Line type="linear" dataKey="d3" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }} />
-                          </BarChart>
+                          </ComposedChart>
                         </ResponsiveContainer>
                       ) : (
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูล" /></div>
@@ -584,14 +578,14 @@ function GraduateQualityPage() {
                     <div style={{ height: 190, width: "100%" }}>
                       {trendChartsData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
+                          <ComposedChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
                             <XAxis 
-                            dataKey="year" 
-                            tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                            tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                            axisLine={false} 
-                            tickLine={false} 
+                              dataKey="year" 
+                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
+                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
+                              axisLine={false} 
+                              tickLine={false} 
                             />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[0, 5]} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value}`, 'ทักษะความสัมพันธ์ฯ']} />
@@ -602,7 +596,7 @@ function GraduateQualityPage() {
                               <LabelList dataKey="d4" position="top" style={{ fill: '#475569', fontSize: 11, fontWeight: '600' }} formatter={(v) => Number(v).toFixed(2)} />
                             </Bar>
                             <Line type="linear" dataKey="d4" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }} />
-                          </BarChart>
+                          </ComposedChart>
                         </ResponsiveContainer>
                       ) : (
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูล" /></div>
@@ -620,14 +614,14 @@ function GraduateQualityPage() {
                     <div style={{ height: 190, width: "100%" }}>
                       {trendChartsData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
+                          <ComposedChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
                             <XAxis 
-                            dataKey="year" 
-                            tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                            tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                            axisLine={false} 
-                            tickLine={false} 
+                              dataKey="year" 
+                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
+                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
+                              axisLine={false} 
+                              tickLine={false} 
                             />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} domain={[0, 5]} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value}`, 'ทักษะวิเคราะห์เชิงตัวเลข/ไอที']} />
@@ -638,7 +632,7 @@ function GraduateQualityPage() {
                               <LabelList dataKey="d5" position="top" style={{ fill: '#475569', fontSize: 11, fontWeight: '600' }} formatter={(v) => Number(v).toFixed(2)} />
                             </Bar>
                             <Line type="linear" dataKey="d5" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }} />
-                          </BarChart>
+                          </ComposedChart>
                         </ResponsiveContainer>
                       ) : (
                         <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูล" /></div>
@@ -649,7 +643,7 @@ function GraduateQualityPage() {
                 </div>
               </div>
             );
-          })()}
+          })()} {/* 👈 ปิดวงเล็บ Arrow Function ที่ขาดไป */}
 
           {/* TABLE ZONE */}
           <div style={{ background: "white", padding: 24, borderRadius: 16 }}>
