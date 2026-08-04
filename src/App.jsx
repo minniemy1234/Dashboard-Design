@@ -23,13 +23,13 @@ import AdminManagementPage from "./pages/AdminManagementPage";
 
 const GOOGLE_CLIENT_ID = "279564406031-jmit17s4jtcvrnbdolg8glqhdp9divj5.apps.googleusercontent.com";
 
-// 🔒 ตัวเช็กสำหรับผู้ใช้งานทั่วไป + Admin (ต้องล็อกอินก่อนถึงจะเข้าได้)
+// ตัวเช็กสำหรับผู้ใช้งานทั่วไป + Admin (ต้องล็อกอินก่อนถึงจะเข้าได้)
 const ProtectedRoutes = () => {
   const isAuthenticated = localStorage.getItem("isLoggedIn") === "true";
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
-// 🔑 ตัวเช็คเฉพาะ Admin (เช็กทั้ง Role และ Email เพื่อความชัวร์)
+// ตัวเช็คเฉพาะ Admin (เช็กทั้ง Role และ Email เพื่อความชัวร์)
 const AdminRoute = () => {
   const isAuthenticated = localStorage.getItem("isLoggedIn") === "true";
   const role = localStorage.getItem("role");
@@ -51,7 +51,7 @@ function App() {
           {/* หน้า Login */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/*หน้าสำหรับผู้ใช้งานทุกคนที่ล็อกอินแล้ว */}
+          {/* หน้าสำหรับผู้ใช้งานทุกคนที่ล็อกอินแล้ว */}
           <Route element={<ProtectedRoutes />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/employment" element={<EmploymentPage />} />
@@ -64,13 +64,13 @@ function App() {
             <Route path="/courses" element={<CoursePage />} />
           </Route>
 
-          {/*ล็อกเฉพาะ Admin เข้าได้ */}
+          {/* ล็อกเฉพาะ Admin เข้าได้ */}
           <Route element={<AdminRoute />}>
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/admin-management" element={<AdminManagementPage />} />
           </Route>
 
-          {/*ถ้าเข้า URL มั่ว ให้เด้งกลับหน้าหลัก */}
+          {/* ถ้าเข้า URL มั่ว ให้เด้งกลับหน้าหลัก */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
