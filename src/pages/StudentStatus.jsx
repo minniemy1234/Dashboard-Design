@@ -19,7 +19,8 @@ import {
   SearchOutlined,
   LogoutOutlined,
   CloseCircleOutlined,
-  UserDeleteOutlined
+  UserDeleteOutlined,
+  ReloadOutlined
 } from "@ant-design/icons";
 
 const { Header, Content } = Layout;
@@ -73,37 +74,26 @@ function StudentStatus() {
     const dismissals = [];
     const expels = [];
 
-    // เริ่มวนลูปอ่านแถวข้อมูลจริงตั้งแต่แถวที่ 6 เป็นต้นไป (หลังจากผ่านช่วงหัวข้อรายงานแล้ว)
     rawList.forEach((row) => {
       if (!row) return;
 
-      // แปลง Object ให้เป็นอาร์เรย์ของข้อมูลรายคอลัมน์ เพื่อตัดปัญหาชื่อ Key เพี้ยน
       const rowValues = Object.values(row);
 
-      // ล็อกดัชนีคอลัมน์ตามตำแหน่งของไฟล์จริง
-      const degree = rowValues[0] ? String(rowValues[0]).trim() : "";  // คอลัมน์แรก: ชื่อหลักสูตร
-      const major = rowValues[1] ? String(rowValues[1]).trim() : "";   // คอลัมน์ 2: สาขาวิชา
-      const year = rowValues[3] ? String(rowValues[3]).trim() : "";    // คอลัมน์ 4: ปีการศึกษาที่รับเข้า
+      const degree = rowValues[0] ? String(rowValues[0]).trim() : "";
+      const major = rowValues[1] ? String(rowValues[1]).trim() : "";
+      const year = rowValues[3] ? String(rowValues[3]).trim() : "";
 
-      // ดักจับข้อมูลขยะ แถวสรุปยอด หรือ แถวหัวตารางเดิมที่ปนมา
       if (!major || major === "สาขา" || major.includes("คณะ") || !year || year.includes("ปีการศึกษา")) {
         return; 
       }
 
-      // ดึงสถิติตามตำแหน่งคอลัมน์ (นับตำแหน่งเริ่มจาก 0)
-      // คอลัมน์ดัชนีที่ 5 = ลาออก (ปี 2564)
-      // คอลัมน์ดัชนีที่ 10 = ลาออก (ภาคปลาย 2567)
       const dropCount1 = Number(rowValues[5]) || 0;
       const dropCount2 = Number(rowValues[10]) || 0;
       const totalDrop = dropCount1 + dropCount2;
 
-      // คอลัมน์ดัชนีที่ 6 = พ้นสภาพ(N)
       const totalDismiss = Number(rowValues[6]) || 0;
-
-      // คอลัมน์ดัชนีที่ 7 = ถูกคัดชื่อออก
       const totalExpel = Number(rowValues[7]) || 0;
 
-      // จัดหมวดหมู่ส่งไปยังตารางและกราฟ (ดักกรองแสดงเฉพาะยอดที่มากกว่า 0)
       if (totalDrop > 0) {
         dropouts.push({ ปีการศึกษา: year, ชื่อสาขา: major, หลักสูตร: degree, จำนวน: totalDrop, หมายเหตุ: "ลาออกตามความประสงค์" });
       }
@@ -146,6 +136,13 @@ function StudentStatus() {
     });
   };
 
+  const handleResetFilters = () => {
+    setSelectedYear("");
+    setSelectedMajor("");
+    setSearchText("");
+    setAppliedFilters({ year: "", major: "", search: "" });
+  };
+
   const filterHelper = (data) => {
     return data.filter((item) => {
       const searchMatch = !appliedFilters.search || JSON.stringify(item).toLowerCase().includes(appliedFilters.search.toLowerCase());
@@ -162,6 +159,26 @@ function StudentStatus() {
   const totalDropout = filteredDropout.reduce((sum, item) => sum + item["จำนวน"], 0);
   const totalDismissed = filteredDismissed.reduce((sum, item) => sum + item["จำนวน"], 0);
   const totalExpelled = filteredExpelled.reduce((sum, item) => sum + item["จำนวน"], 0);
+
+  // คำนวณชุดข้อมูลสำหรับ Pie Chart สาเหตุการออก
+  const pieReasonData = useMemo(() => {
+    return [
+      { name: "พ้นสภาพ", value: totalDismissed, color: "#0091ff" },
+      { name: "ถูกคัดชื่อออก", value: totalExpelled, color: "#61c8fe" },
+      { name: "ลาออก", value: totalDropout, color: "#003a8c" }
+    ].filter(item => item.value > 0);
+  }, [totalDismissed, totalExpelled, totalDropout]);
+
+  // คำนวณชุดข้อมูลสำหรับ Pie Chart สถานะบัณฑิต
+  const pieStatusData = useMemo(() => {
+    const totalOut = totalDropout + totalDismissed + totalExpelled;
+    const studying = 473; 
+    return [
+      { name: "กำลังศึกษา", value: studying, color: "#003a8c" },
+      { name: "ออกกลางคัน", value: totalOut, color: "#0091ff" },
+      { name: "สำเร็จการศึกษา", value: 0, color: "#bae7ff" }
+    ].filter(item => item.value > 0);
+  }, [totalDropout, totalDismissed, totalExpelled]);
 
   const chartData = useMemo(() => {
     const map = {};
@@ -183,7 +200,6 @@ function StudentStatus() {
     return Object.values(map);
   }, [filteredDropout, filteredDismissed, filteredExpelled]);
 
-  // 📈 คำนวณหาค่าสูงที่สุดในแต่ละสาขาวิชา และบวกเผื่อพื้นที่ด้านขวา เพื่อไม่ให้ตัวเลขหลักหน่วย/สิบที่แสดงปลายแท่งโดนบีบจนตกขอบแกนกราฟ
   const maxChartValue = useMemo(() => {
     if (chartData.length === 0) return 5;
     let absoluteMax = 0;
@@ -193,18 +209,14 @@ function StudentStatus() {
     });
     
     if (absoluteMax < 5) return 5;
-    
-    // เผื่อขอบไว้ 15% เพื่อให้มีที่ว่างพอสำหรับวาง Label ตัวเลขปลายแท่ง
     return Math.ceil(absoluteMax * 1.15);
   }, [chartData]);
 
-  // 📝 คำนวณ Dynamic Title สำหรับกราฟตามปีการศึกษาที่เลือกจริง
   const chartTitleYear = useMemo(() => {
     if (appliedFilters.year) {
       return `ปีการศึกษา ${appliedFilters.year}`;
     }
     if (years.length > 0) {
-      // แสดงช่วงปีที่พบทั้งหมด เช่น "ปีการศึกษา 2564 - 2567"
       return `ปีการศึกษา ${years[0]} - ${years[years.length - 1]}`;
     }
     return "ทุกปีการศึกษา";
@@ -266,7 +278,10 @@ function StudentStatus() {
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+              <Button size="large" icon={<ReloadOutlined />} onClick={handleResetFilters} style={{ height: 45, borderRadius: 10, padding: "0 20px" }}>
+                ล้างค่าการค้นหา
+              </Button>
               <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} style={{ height: 45, borderRadius: 10, padding: "0 32px", fontSize: 15, fontWeight: 500 }}>
                 ค้นหาข้อมูลสถานะ
               </Button>
@@ -280,10 +295,7 @@ function StudentStatus() {
                 <div>
                   <h3 style={{ color: "#d46b08", margin: "0 0 12px 0" }}>นิสิตลาออก</h3>
                   <h1 style={{ color: "#d46b08", fontSize: 38, fontWeight: 700, margin: 0 }}>{totalDropout.toLocaleString()}</h1>
-                  <p style={{ marginTop: 8, color: "#8c8c8c", fontSize: 13 }}>คน 
-
-                  
-                  </p>
+                  <p style={{ marginTop: 8, color: "#8c8c8c", fontSize: 13 }}>คน</p>
                 </div>
                 <LogoutOutlined style={{ fontSize: 50, color: "#ffd591", marginTop: 10 }} />
               </div>
@@ -305,14 +317,14 @@ function StudentStatus() {
                 <div>
                   <h3 style={{ color: "#434343", margin: "0 0 12px 0" }}>นิสิตถูกคัดชื่อ</h3>
                   <h1 style={{ color: "#434343", fontSize: 38, fontWeight: 700, margin: 0 }}>{totalExpelled.toLocaleString()}</h1>
-                  <p style={{ marginTop: 8, color: "#8c8c8c", fontSize: 13 }}>คน </p>
+                  <p style={{ marginTop: 8, color: "#8c8c8c", fontSize: 13 }}>คน</p>
                 </div>
                 <UserDeleteOutlined style={{ fontSize: 50, color: "#d9d9d9", marginTop: 10 }} />
               </div>
             </div>
           </div>
 
-          {/* 🍩 PIE/DONUT CHARTS ZONE (ต่อจาก KPI Zone) */}
+          {/* 🍩 PIE/DONUT CHARTS ZONE */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, marginTop: 24 }}>
             
             {/* กราฟที่ 1: สาเหตุการออก */}
@@ -321,7 +333,7 @@ function StudentStatus() {
                 สาเหตุการออก
               </h3>
               <div style={{ height: 260 }}>
-                {totalDropout + totalDismissed + totalExpelled === 0 ? (
+                {pieReasonData.length === 0 ? (
                   <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#bfbfbf" }}>
                     ไม่มีข้อมูลการออก
                   </div>
@@ -329,11 +341,7 @@ function StudentStatus() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={[
-                          { name: "พ้นสภาพ", value: totalDismissed, color: "#0091ff" },
-                          { name: "ถูกคัดชื่อออก", value: totalExpelled, color: "#61c8fe" },
-                          { name: "ลาออก", value: totalDropout, color: "#003a8c" }
-                        ].filter(item => item.value > 0)}
+                        data={pieReasonData}
                         dataKey="value"
                         nameKey="name"
                         cx="40%"
@@ -343,11 +351,7 @@ function StudentStatus() {
                         paddingAngle={2}
                         label={({ value, percent }) => `${value} (${(percent * 100).toFixed(2)}%)`}
                       >
-                        {[
-                          { name: "พ้นสภาพ", color: "#0091ff" },
-                          { name: "ถูกคัดชื่อออก", color: "#61c8fe" },
-                          { name: "ลาออก", color: "#003a8c" }
-                        ].map((entry, index) => (
+                        {pieReasonData.map((entry, index) => (
                           <Cell key={`cell-reason-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -365,53 +369,45 @@ function StudentStatus() {
               </div>
             </div>
 
-            {/* กราฟที่ 2: สถานะบัณฑิต/กลุ่มสถานะ */}
+            {/* กราฟที่ 2: สถานะบัณฑิต */}
             <div style={{ background: "white", borderRadius: 16, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
               <h3 style={{ margin: "0 0 16px 0", fontSize: 18, fontWeight: 600, color: "#1f1f1f" }}>
                 สถานะบัณฑิต
               </h3>
               <div style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={(() => {
-                        const totalOut = totalDropout + totalDismissed + totalExpelled;
-                        // สามารถคำนวณหรือกำหนดนิสิตกำลังศึกษา/สำเร็จการศึกษาจาก Data ได้ตามต้องการ
-                        const studying = 473; 
-                        return [
-                          { name: "กำลังศึกษา", value: studying, color: "#003a8c" },
-                          { name: "ออกกลางคัน", value: totalOut, color: "#0091ff" },
-                          { name: "สำเร็จการศึกษา", value: 0, color: "#bae7ff" }
-                        ].filter(item => item.value > 0);
-                      })()}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="40%"
-                      cy="50%"
-                      innerRadius={55}
-                      outerRadius={90}
-                      paddingAngle={2}
-                      label={({ value, percent }) => `${value} (${(percent * 100).toFixed(2)}%)`}
-                    >
-                      {[
-                        { color: "#003a8c" },
-                        { color: "#0091ff" },
-                        { color: "#bae7ff" }
-                      ].map((entry, index) => (
-                        <Cell key={`cell-status-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => [`${value} คน`, 'จำนวน']} />
-                    <Legend 
-                      layout="vertical" 
-                      verticalAlign="middle" 
-                      align="right"
-                      iconType="circle"
-                      title="กลุ่มสถานะ"
-                      wrapperStyle={{ fontSize: 13, paddingLeft: 10 }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {pieStatusData.length === 0 ? (
+                  <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#bfbfbf" }}>
+                    ไม่มีข้อมูลสถานะ
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieStatusData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="40%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={90}
+                        paddingAngle={2}
+                        label={({ value, percent }) => `${value} (${(percent * 100).toFixed(2)}%)`}
+                      >
+                        {pieStatusData.map((entry, index) => (
+                          <Cell key={`cell-status-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`${value} คน`, 'จำนวน']} />
+                      <Legend 
+                        layout="vertical" 
+                        verticalAlign="middle" 
+                        align="right"
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: 13, paddingLeft: 10 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -420,24 +416,21 @@ function StudentStatus() {
           {/* GRAPH CHART ZONE */}
           <div style={{ background: "white", borderRadius: 16, padding: 24, marginTop: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
             <div style={{ marginBottom: 20 }}>
-              {/* 🔄 แสดงหัวข้อแบบ Dynamic มีปีการศึกษาเปลี่ยนไปตามฟิลเตอร์ด้านบน */}
               <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: "#262626" }}>
                 เปรียบเทียบจำนวนนิสิตกลุ่มพิเศษแยกตามสาขาวิชา ({chartTitleYear})
               </h2>
               <div style={{ color: "#8c8c8c", fontSize: 13, marginTop: 4 }}>จำแนกตามสัดส่วน ลาออก พ้นสภาพ และถูกคัดชื่อออก</div>
             </div>
             
-            {/* ปรับความสูงกราฟอัตโนมัติตามปริมาณสาขา เพื่อไม่ให้แท่งกราฟเบียดซ้อนกัน */}
             <div style={{ height: chartData.length > 5 ? chartData.length * 55 : 350, minHeight: 350 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart 
                   data={chartData} 
                   layout="vertical"
-                  margin={{ top: 10, right: 40, left: 10, bottom: 10 }} // เผื่อ right margin เล็กน้อยสำหรับตัวเลขปลายแท่ง
+                  margin={{ top: 10, right: 40, left: 10, bottom: 10 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f0f0f0" />
                   
-                  {/* แกน X แสดงจำนวนคน - ห้ามทศนิยมและล็อกโดเมนแบบ Dynamic ตามสัดส่วนสูงสุดจริง */}
                   <XAxis 
                     type="number" 
                     stroke="#bfbfbf" 
@@ -446,7 +439,6 @@ function StudentStatus() {
                     domain={[0, maxChartValue]}
                   />
                   
-                  {/* แกน Y แสดงชื่อสาขาวิชา */}
                   <YAxis 
                     dataKey="name" 
                     type="category" 
@@ -475,14 +467,13 @@ function StudentStatus() {
                     wrapperStyle={{ fontSize: 13, fontWeight: 500 }}
                   />
                   
-                  {/* กำหนดความหนาแท่งกราฟ แต่งขอบมนฝั่งขวา และเพิ่ม LabelList แสดงตัวเลข */}
                   <Bar dataKey="ลาออก" fill="#d46b08" barSize={12} radius={[0, 4, 4, 0]}>
                     <LabelList 
                       dataKey="ลาออก" 
                       position="right" 
                       fill="#d46b08" 
                       style={{ fontSize: 11, fontWeight: 600, paddingLeft: 5 }} 
-                      formatter={(value) => value > 0 ? value : ""} // แสดงเฉพาะกรณีมากกว่า 0 คน
+                      formatter={(value) => value > 0 ? value : ""}
                     />
                   </Bar>
                   <Bar dataKey="พ้นสภาพ" fill="#cf1322" barSize={12} radius={[0, 4, 4, 0]}>
@@ -510,9 +501,9 @@ function StudentStatus() {
 
           {/* TABLE ZONE */}
           <div style={{ background: "white", padding: 24, borderRadius: 16, marginTop: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-            <h2>รายละเอียดข้อมูลนิสิตจำแนกรายบุคคล/กลุ่มสถานะ</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 600, margin: "0 0 20px 0" }}>รายละเอียดข้อมูลนิสิตจำแนกรายบุคคล/กลุ่มสถานะ</h2>
             
-            <h3 style={{ marginTop: 20, color: "#d46b08" }}>📋 รายการนิสิตลาออก</h3>
+            <h3 style={{ marginTop: 20, color: "#d46b08", fontSize: 16, fontWeight: 600 }}>📋 รายการนิสิตลาออก</h3>
             <Table 
               columns={columns} 
               dataSource={filteredDropout} 
@@ -527,7 +518,7 @@ function StudentStatus() {
               bordered
             />
 
-            <h3 style={{ marginTop: 30, color: "#cf1322" }}>📋 รายการนิสิตพ้นสภาพ</h3>
+            <h3 style={{ marginTop: 30, color: "#cf1322", fontSize: 16, fontWeight: 600 }}>📋 รายการนิสิตพ้นสภาพ</h3>
             <Table 
               columns={columns} 
               dataSource={filteredDismissed} 
@@ -542,7 +533,7 @@ function StudentStatus() {
               bordered
             />
 
-            <h3 style={{ marginTop: 30, color: "#434343" }}>📋 รายการนิสิตถูกคัดชื่อ</h3>
+            <h3 style={{ marginTop: 30, color: "#434343", fontSize: 16, fontWeight: 600 }}>📋 รายการนิสิตถูกคัดชื่อ</h3>
             <Table 
               columns={columns} 
               dataSource={filteredExpelled} 
