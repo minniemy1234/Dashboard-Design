@@ -46,10 +46,10 @@ function UploadPage() {
   const [batchImageFiles, setBatchImageFiles] = useState([]);
   const [selectedTeacherIndex, setSelectedTeacherIndex] = useState(null);
 
-  // 🛡️ STATE ตรวจสอบสิทธิ์ผู้ดูแลระบบ (ADMIN)
+  // ตรวจสอบสิทธิ์ผู้ดูแลระบบ (ADMIN)
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // 🧹 ฟังก์ชันสำหรับ Clean และกรองขยะออก ให้เหลือเฉพาะอาจารย์จริง
+  // ฟังก์ชันสำหรับ Clean และกรองขยะออก ให้เหลือเฉพาะอาจารย์จริง
   const cleanFacultyList = useCallback((list) => {
     if (!Array.isArray(list)) return [];
     
@@ -81,7 +81,7 @@ function UploadPage() {
     return Array.from(uniqueMap.values());
   }, []);
 
-  // 🔍 ระบบตรวจค้นหาคลังข้อมูลอาจารย์ใน localStorage
+  // ระบบตรวจค้นหาคลังข้อมูลอาจารย์ใน localStorage
   const refreshExistingCategories = useCallback(() => {
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
@@ -130,7 +130,7 @@ function UploadPage() {
   }, [cleanFacultyList]);
 
   useEffect(() => {
-    // 🔒 เช็กสิทธิ์แอดมินจาก LocalStorage
+    // เช็กสิทธิ์แอดมินจาก LocalStorage
     const currentRole = localStorage.getItem("role");
     const currentEmail = (localStorage.getItem("email") || "").toLowerCase();
 
@@ -163,9 +163,8 @@ function UploadPage() {
     });
   };
 
-  // -------------------------------------------------------------
-  // 📊 LOGIC การจัดการไฟล์ EXCEL / CSV
-  // -------------------------------------------------------------
+
+  // LOGIC การจัดการไฟล์ EXCEL / CSV
   const handleFileChange = (event) => {
     if (!isAdmin) {
       message.error("คุณไม่มีสิทธิ์ในการอัปโหลดไฟล์ (สิทธิ์สำหรับผู้ดูแลระบบเท่านั้น)");
@@ -336,9 +335,8 @@ function UploadPage() {
     refreshExistingCategories();
   };
 
-  // -------------------------------------------------------------
-  // 📸 LOGIC การจัดการรูปภาพอาจารย์
-  // -------------------------------------------------------------
+  
+  // LOGIC การจัดการรูปภาพอาจารย์ //  
   const handleSaveBatchTeacherImages = async () => {
     if (!isAdmin) {
       message.error("สิทธิ์ไม่เพียงพอสำหรับการแก้ไขรูปภาพอาจารย์");
@@ -487,7 +485,7 @@ function UploadPage() {
 
         <Content style={{ padding: "24px 32px 32px 32px", background: "#f5f5f5" }}>
 
-          {/* 🔴 แจ้งเตือนกรณีผู้ใช้ปัจจุบันไม่ใช่ Admin */}
+          {/* แจ้งเตือนกรณีผู้ใช้ปัจจุบันไม่ใช่ Admin */}
           {!isAdmin && (
             <AntAlert
               message="โหมดอ่านอย่างเดียว (Read Only)"
@@ -524,7 +522,7 @@ function UploadPage() {
                     <FileExcelOutlined style={{ color: "#16a34a", marginRight: 6 }} /> <b>ไฟล์ที่เลือก:</b> {fileName}
                     {detectedCategory && (
                       <div style={{ marginTop: 6, color: "#166534" }}>
-                        🔎 ระบบตรวจพบและจำแนกเป็น: <b style={{ background: "#dcfce7", padding: "2px 6px", borderRadius: 4 }}>
+                        ระบบตรวจพบและจำแนกเป็น: <b style={{ background: "#dcfce7", padding: "2px 6px", borderRadius: 4 }}>
                           {detectedCategory}
                         </b>
                       </div>
@@ -542,7 +540,7 @@ function UploadPage() {
                 </AntButton>
               </AntCard>
 
-              {/* 📸 2. ช่องอัปโหลดรูปภาพประจำตัวอาจารย์ */}
+              {/*  2. ช่องอัปโหลดรูปภาพประจำตัวอาจารย์ */}
               <AntCard title={<span><PictureOutlined style={{ marginRight: 8, color: "#722ed1" }} /> ช่องอัปโหลดรูปภาพโปรไฟล์อาจารย์</span>} style={{ ...commonCardStyle, borderTop: "4px solid #722ed1" }}>
                 <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
                   อัปโหลดภาพถ่ายอาจารย์เพื่อไปแสดงผลการ์ดโปรไฟล์ในหน้า <b>FacultyPage</b>
@@ -684,11 +682,11 @@ function UploadPage() {
                     },
                     {
                       key: "batch",
-                      label: "📁 อัปโหลดทั้งโฟลเดอร์ (Auto-Match)",
+                      label: " อัปโหลดทั้งโฟลเดอร์",
                       children: (
                         <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 8 }}>
                           <div style={{ fontSize: 12, color: "#595959", background: "#f9f0ff", padding: 12, borderRadius: 8, border: "1px solid #d3adf7", lineHeight: "1.6" }}>
-                            💡 <b>วิธีใช้งานระบบอ่านรูปภาพอัตโนมัติ:</b>
+                           <b>วิธีใช้งานระบบอ่านรูปภาพอัตโนมัติ:</b>
                             <br />1. ตั้งชื่อไฟล์รูปภาพให้มีชื่ออาจารย์ เช่น <code>สมชาย_ใจดี.jpg</code> หรือ <code>ดร.สมชาย.png</code>
                             <br />2. ลากรูปภาพทั้งหมดจากโฟลเดอร์มาวางลงในช่องด้านล่าง แล้วกดบันทึก
                           </div>
@@ -737,7 +735,7 @@ function UploadPage() {
 
             </div>
 
-            {/* ฝั่งขวา: แสดงคลังข้อมูลในระบบปัจจุบัน */}
+            {/* แสดงคลังข้อมูลในระบบปัจจุบัน */}
             <AntCard title={<span><DatabaseOutlined style={{ marginRight: 8, color: "#0077b6" }} /> คลังข้อมูลระบบปัจจุบัน</span>} style={{ ...commonCardStyle, position: "sticky", top: 24 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {existingCategories.length === 0 ? (
