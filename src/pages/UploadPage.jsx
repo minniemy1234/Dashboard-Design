@@ -1,18 +1,20 @@
-// ภาษาที่ใช้ เป็น HTML + JavaScript (JSX ใน React)
 import Sidebar from "../components/Sidebar";
 import { useState, useEffect, useCallback } from "react";
-import * as XLSX from "xlsx";
 import { setDashboardData } from "../data/dashboardData";
+import * as XLSX from "xlsx";
+import Cropper from "react-easy-crop";
 import {
   UploadOutlined,
   DeleteOutlined,
-  FileExcelOutlined,
   CheckCircleOutlined,
   DatabaseOutlined,
   PictureOutlined,
-  FolderOpenOutlined,
   UserOutlined,
-  LockOutlined
+  LockOutlined,
+  EyeOutlined,
+  ExclamationCircleOutlined,
+  FileExcelOutlined,
+  ScissorOutlined
 } from "@ant-design/icons";
 import { 
   Layout as AntLayout, 
@@ -24,37 +26,97 @@ import {
   message,
   Upload as AntUpload,
   Tabs as AntTabs,
-  Alert as AntAlert
+  Alert as AntAlert,
+  Table as AntTable,
+  Space,
+  Tag,
+  Slider
 } from "antd";
 
 const { Header, Content } = AntLayout;
 
 function UploadPage() {
-  
-  // STATES
-  const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
-  const [detectedCategory, setDetectedCategory] = useState(""); 
-  const [tempResult, setTempResult] = useState(null);
+  const [targetTableName, setTargetTableName] = useState("");
+  const [previewData, setPreviewData] = useState(null);
+  const [parsedSheetsData, setParsedSheetsData] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [loadingConfirm, setLoadingConfirm] = useState(false);
 
-  const [existingCategories, setExistingCategories] = useState([]);
-  const [surveyYearsList, setSurveyYearsList] = useState([]);
+  const [dbTables, setDbTables] = useState([]);
+  const [selectedTableData, setSelectedTableData] = useState(null);
+  const [viewModalVisible, setViewModalVisible] = useState(false);
 
-  // States สำหรับระบบอัปโหลดรูปภาพอาจารย์
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [tableToDelete, setTableToDelete] = useState("");
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+
   const [facultyList, setFacultyList] = useState([]);
   const [facultyStorageKey, setFacultyStorageKey] = useState("ข้อมูลอาจารย์"); 
-  const [batchImageFiles, setBatchImageFiles] = useState([]);
   const [selectedTeacherIndex, setSelectedTeacherIndex] = useState(null);
 
-  // ตรวจสอบสิทธิ์ผู้ดูแลระบบ (ADMIN)
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // ฟังก์ชันสำหรับ Clean และกรองขยะออก ให้เหลือเฉพาะอาจารย์จริง
+  // State สำหรับระบบ Crop รูปภาพ
+  const [cropModalVisible, setCropModalVisible] = useState(false);
+  const [tempImageSrc, setTempImageSrc] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const guessTableFromFilename = (filename) => {
+    if (!filename) return "";
+    const name = filename.toLowerCase();
+
+    if (name.includes("อาจารย์") || name.includes("faculty") || name.includes("teacher")) {
+      return "ข้อมูลอาจารย์";
+    }
+    if (name.includes("สถานภาพ") || name.includes("status") || name.includes("baseสถานภาพ")) {
+      return "ข้อมูลสถานภาพนิสิต"; 
+    }
+    if (name.includes("งานทำ") || name.includes("employment") || name.includes("ภาวะการมีงานทำ")) {
+      return "ข้อมูลภาวะการมีงานทำ";
+    }
+    if (name.includes("คงอยู่") || name.includes("retain") || name.includes("นิสิต")) {
+      return "จำนวนนิสิตคงอยู่"; 
+    }
+    if (name.includes("วิจัย") || name.includes("research")) {
+      return "ข้อมูลวิจัย";
+    }
+    if (name.includes("ประเมินคุณภาพหลักสูตร") || name.includes("ประเมินหลักสูตร")) {
+      return "ข้อมูลผลการประเมินคุณภาพหลักสูตร";
+    }
+    if (name.includes("ประเมินคุณภาพบัณฑิต") || name.includes("ประเมินบัณฑิต") || name.includes("eval")) {
+      return "ข้อมูลผลการประเมินคุณภาพบัณฑิต";
+    }
+    return name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]/g, "_");
+  };
+
+  const fetchDbTablesFromLocal = useCallback(() => {
+    const stored = localStorage.getItem("dashboardData");
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        if (data && typeof data === "object") {
+          const list = Object.keys(data).map(key => ({
+            tableName: key,
+            rowCount: Array.isArray(data[key]) ? data[key].length : 0
+          }));
+          setDbTables(list);
+          return;
+        }
+      } catch (err) {
+        console.error("Error reading localStorage:", err);
+      }
+    }
+    setDbTables([]);
+  }, []);
+
   const cleanFacultyList = useCallback((list) => {
     if (!Array.isArray(list)) return [];
     
-    // 1. กรองเฉพาะแถวที่มีชื่ออาจารย์จริงๆ
     const validRows = list.filter(item => {
+      if (!item) return false;
       const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || item["ชื่อผู้สอน"] || item["Name"] || "";
       const cleanName = String(name).trim();
       
@@ -68,7 +130,6 @@ function UploadPage() {
       return !isInvalid;
     });
 
-    // 2. ลบรายชื่อซ้ำ (Deduplicate)
     const uniqueMap = new Map();
     validRows.forEach(item => {
       const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || item["ชื่อผู้สอน"] || item["Name"] || "";
@@ -81,77 +142,52 @@ function UploadPage() {
     return Array.from(uniqueMap.values());
   }, []);
 
-  // ระบบตรวจค้นหาคลังข้อมูลอาจารย์ใน localStorage
   const refreshExistingCategories = useCallback(() => {
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
       try {
         const data = JSON.parse(stored);
-        const keys = Object.keys(data);
-        setExistingCategories(keys);
-        
-        if (data["student_retain_survey_group"]) {
-          setSurveyYearsList(Object.keys(data["student_retain_survey_group"]).sort());
-        } else {
-          setSurveyYearsList([]);
-        }
+        if (data && typeof data === "object") {
+          let foundTeachers = [];
+          let matchedKey = "ข้อมูลอาจารย์";
 
-        let foundTeachers = [];
-        let matchedKey = "ข้อมูลอาจารย์";
-
-        if (Array.isArray(data["ข้อมูลอาจารย์"]) && data["ข้อมูลอาจารย์"].length > 0) {
-          foundTeachers = data["ข้อมูลอาจารย์"];
-          matchedKey = "ข้อมูลอาจารย์";
-        } else if (Array.isArray(data["อาจารย์"]) && data["อาจารย์"].length > 0) {
-          foundTeachers = data["อาจารย์"];
-          matchedKey = "อาจารย์";
-        } else {
-          for (let key of keys) {
-            const val = data[key];
-            if (Array.isArray(val) && val.length > 0 && key.includes("อาจารย์")) {
-              foundTeachers = val;
-              matchedKey = key;
-              break;
-            }
+          if (Array.isArray(data["ข้อมูลอาจารย์"]) && data["ข้อมูลอาจารย์"].length > 0) {
+            foundTeachers = data["ข้อมูลอาจารย์"];
+            matchedKey = "ข้อมูลอาจารย์";
+          } else if (Array.isArray(data["อาจารย์สาขา"]) && data["อาจารย์สาขา"].length > 0) {
+            foundTeachers = data["อาจารย์สาขา"];
+            matchedKey = "อาจารย์สาขา";
+          } else if (Array.isArray(data["อาจารย์"]) && data["อาจารย์"].length > 0) {
+            foundTeachers = data["อาจารย์"];
+            matchedKey = "อาจารย์";
           }
-        }
 
-        const cleanedTeachers = cleanFacultyList(foundTeachers);
-        setFacultyList(cleanedTeachers);
-        setFacultyStorageKey(matchedKey);
+          const cleanedTeachers = cleanFacultyList(foundTeachers);
+          setFacultyList(cleanedTeachers);
+          setFacultyStorageKey(matchedKey);
+        }
       } catch (error) {
         console.error("Error parsing dashboardData:", error);
       }
     } else {
-      setExistingCategories([]);
-      setSurveyYearsList([]);
       setFacultyList([]);
     }
   }, [cleanFacultyList]);
 
   useEffect(() => {
-    // เช็กสิทธิ์แอดมินจาก LocalStorage
     const currentRole = localStorage.getItem("role");
     const currentEmail = (localStorage.getItem("email") || "").toLowerCase();
 
     const checkAdminStatus = currentRole === "admin" || currentEmail === "naramon.si@ku.th";
     setIsAdmin(checkAdminStatus);
 
+    fetchDbTablesFromLocal();
     refreshExistingCategories();
-  }, [refreshExistingCategories]);
+  }, [fetchDbTablesFromLocal, refreshExistingCategories]);
 
   const cleanString = (str) => {
     if (!str) return "";
     return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
-  };
-
-  const normalizeTeacherName = (str) => {
-    if (!str) return "";
-    return String(str)
-      .replace(/(นาย|นาง|นางสาว|ดร\.|ผศ\.|รศ\.|ศ\.|อาจารย์|อ\.|ดร|ผศ|รศ|ศ)/g, "")
-      .replace(/\s+/g, "")
-      .replace(/[^a-zA-Z0-9ก-๙]/g, "")
-      .toLowerCase();
   };
 
   const convertFileToBase64 = (file) => {
@@ -163,299 +199,317 @@ function UploadPage() {
     });
   };
 
+  // Helper Functions สำหรับ Crop รูปภาพ
+  const createImage = (url) =>
+    new Promise((resolve, reject) => {
+      const image = new Image();
+      image.addEventListener("load", () => resolve(image));
+      image.addEventListener("error", (error) => reject(error));
+      image.setAttribute("crossOrigin", "anonymous");
+      image.src = url;
+    });
 
-  // LOGIC การจัดการไฟล์ EXCEL / CSV
-  const handleFileChange = (event) => {
+  const getCroppedImg = async (imageSrc, pixelCrop) => {
+    const image = await createImage(imageSrc);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    );
+
+    return canvas.toDataURL("image/jpeg");
+  };
+
+  const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleSelectFile = (file) => {
     if (!isAdmin) {
       message.error("คุณไม่มีสิทธิ์ในการอัปโหลดไฟล์ (สิทธิ์สำหรับผู้ดูแลระบบเท่านั้น)");
-      return;
+      return false;
     }
-
-    const file = event.target.files[0];
-    if (!file) return;
-
     setSelectedFile(file);
-    setFileName(file.name);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const data = e.target.result;
-      const workbook = XLSX.read(data, { type: "binary" });
-
-      let finalPayload = {};
-      let detectedCategoriesList = [];
-
-      const cleanFileName = cleanString(file.name);
-
-      const isStudentStatus = cleanFileName.includes("สถานภาพ");
-      const isRetain = cleanFileName.includes("คงอยู่");
-      
-      const isGraduateEval = cleanFileName.includes("คุณภาพบัณฑิต") || cleanFileName.includes("ประเมินคุณภาพบัณฑิต");
-      const isCurriculumEval = cleanFileName.includes("คุณภาพหลักสูตร") || cleanFileName.includes("ประเมินคุณภาพหลักสูตร");
-
-      workbook.SheetNames.forEach((sheetName) => {
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonOutput = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-        if (!jsonOutput || jsonOutput.length === 0) return;
-
-        const rawHeaders = Object.keys(jsonOutput[0] || {});
-        const columnHeadersClean = rawHeaders.map(k => cleanString(k));
-
-        if (
-          isRetain || 
-          sheetName.includes("คงอยู่") || 
-          columnHeadersClean.some(h => h.includes("ปีที่สำรวจ") || h.includes("ปีการศึกษาที่รับเข้า"))
-        ) {
-          finalPayload["ข้อมูลนิสิตคงอยู่"] = jsonOutput;
-          finalPayload["student_retain_data"] = jsonOutput;
-          detectedCategoriesList.push("ข้อมูลนิสิตคงอยู่");
-        } 
-        else if (isStudentStatus || sheetName.includes("สถานภาพ")) {
-          finalPayload["สถานภาพนิสิต"] = jsonOutput;
-          finalPayload["ข้อมูลสถานภาพนิสิต"] = jsonOutput;
-          finalPayload["student_status_data"] = jsonOutput;
-          detectedCategoriesList.push("สถานภาพนิสิต");
-        } 
-        else if (isGraduateEval || sheetName.includes("คุณภาพบัณฑิต")) {
-          finalPayload["ผลการประเมินคุณภาพบัณฑิต"] = jsonOutput;
-          finalPayload["graduate_evaluation_data"] = jsonOutput;
-          detectedCategoriesList.push("ผลการประเมินคุณภาพบัณฑิต");
-        }
-        else if (
-          isCurriculumEval ||
-          sheetName.includes("หลักสูตร") ||
-          columnHeadersClean.some(h => h.includes("คะแนนรวม") || h.includes("องค์ที่"))
-        ) {
-          finalPayload["ผลการประเมินคุณภาพหลักสูตร"] = jsonOutput;
-          finalPayload["curriculum_evaluation_data"] = jsonOutput;
-          detectedCategoriesList.push("ผลการประเมินคุณภาพหลักสูตร");
-        }
-        else if (
-          sheetName.includes("อาจารย์") || 
-          columnHeadersClean.some(h => h.includes("ตำแหน่งทางวิชาการ") || h.includes("คุณวุฒิ") || h.includes("ชื่ออาจารย์"))
-        ) {
-          const cleaned = cleanFacultyList(jsonOutput);
-          finalPayload["ข้อมูลอาจารย์"] = cleaned;
-          detectedCategoriesList.push("ข้อมูลอาจารย์");
-        } 
-        else if (
-          sheetName.includes("งานทำ") || 
-          columnHeadersClean.some(h => h.includes("ผู้สำเร็จการศึกษา") || h.includes("มีงานทำเดิม") || h.includes("สถานภาพของบัณฑิต"))
-        ) {
-          finalPayload["ภาวะการมีงานทำ"] = jsonOutput;
-          finalPayload["employment_chart_data"] = jsonOutput;
-          detectedCategoriesList.push("ภาวะการมีงานทำ");
-        } 
-        else if (
-          sheetName.includes("วิจัย") || 
-          columnHeadersClean.some(h => h.includes("ผลงานวิจัย") || h.includes("Scopus"))
-        ) {
-          finalPayload["ข้อมูลวิจัย"] = jsonOutput;
-          detectedCategoriesList.push("ข้อมูลวิจัย");
-        } 
-        else {
-          finalPayload[sheetName] = jsonOutput;
-          detectedCategoriesList.push(sheetName);
-        }
-      });
-
-      if (Object.keys(finalPayload).length === 0) {
-        const targetSheetKey = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[targetSheetKey];
-        const jsonOutput = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-        if (jsonOutput.length === 0) {
-          message.error("ไฟล์นี้ไม่มีข้อมูลในแถว!");
-          return;
-        }
-
-        let finalCategoryKey = file.name.includes("สำรวจ") ? "student_retain_survey_group" : "ข้อมูลทั่วไป";
-        finalPayload[finalCategoryKey] = jsonOutput;
-        detectedCategoriesList.push(finalCategoryKey);
-      }
-
-      const categorySummary = Array.from(new Set(detectedCategoriesList)).join(", ");
-      setDetectedCategory(categorySummary);
-      setTempResult(finalPayload);
-    };
-    reader.readAsBinaryString(file);
+    setTargetTableName(guessTableFromFilename(file.name));
+    setPreviewData(null);
+    setParsedSheetsData(null);
+    return false;
   };
 
-  const handleUpload = () => {
-    if (!isAdmin) {
-      message.error("เฉพาะผู้ดูแลระบบ (naramon.si@ku.th) เท่านั้นที่สามารถจัดเก็บข้อมูลได้");
+  const parseCSVLine = (line) => {
+    const result = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) {
+        result.push(cur.trim().replace(/^"|"$/g, ''));
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    result.push(cur.trim().replace(/^"|"$/g, ''));
+    return result;
+  };
+
+  const handlePreviewUpload = () => {
+    if (!selectedFile) {
+      message.warning("กรุณาเลือกไฟล์ก่อนทำรายการ");
       return;
     }
 
-    if (!selectedFile || !tempResult) return;
+    setLoadingPreview(true);
+    const fileName = selectedFile.name.toLowerCase();
 
-    if (detectedCategory.includes("student_retain_survey_group")) {
-      let inputYear = "";
-      const yearMatch = fileName.match(/\d{4}/);
-      if (yearMatch) inputYear = yearMatch[0];
+    if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
 
-      AntModal.confirm({
-        title: "ระบุปีการศึกษาของไฟล์สถิติ",
-        content: <AntInput defaultValue={inputYear} onChange={(e) => { inputYear = e.target.value; }} style={{ borderRadius: 8, marginTop: 10 }} />,
-        onOk() {
-          const finalYear = inputYear.trim();
-          if (!finalYear) return Promise.reject();
-          const stored = localStorage.getItem("dashboardData");
-          let currentDashboard = stored ? JSON.parse(stored) : {};
-          let targetStore = currentDashboard["student_retain_survey_group"] || {};
-          
-          targetStore[finalYear] = tempResult["student_retain_survey_group"];
-          currentDashboard["student_retain_survey_group"] = targetStore;
-          
-          setDashboardData(currentDashboard);
-          localStorage.setItem("dashboardData", JSON.stringify(currentDashboard));
-          clearMainUpload();
-          message.success("นำเข้าไฟล์รายปีเข้าสู่ระบบเรียบร้อย");
+          const sheetsResult = {};
+          let primaryPreview = null;
+
+          workbook.SheetNames.forEach((sheetName) => {
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+            const cleanedRows = jsonRows.map((row) => {
+              const newRow = {};
+              Object.keys(row).forEach((k) => {
+                newRow[k.trim()] = String(row[k]).trim();
+              });
+              return newRow;
+            });
+
+            sheetsResult[sheetName.trim()] = cleanedRows;
+
+            if (!primaryPreview && cleanedRows.length > 0) {
+              primaryPreview = cleanedRows;
+            }
+          });
+
+          setParsedSheetsData(sheetsResult);
+          setPreviewData({
+            totalRows: primaryPreview ? primaryPreview.length : 0,
+            previewRows: primaryPreview || []
+          });
+
+          message.success(`อ่านไฟล์ Excel สำเร็จ พบทั้งหมด ${workbook.SheetNames.length} Sheet`);
+        } catch (err) {
+          message.error("เกิดข้อผิดพลาดในการอ่านไฟล์ Excel");
+        } finally {
+          setLoadingPreview(false);
         }
-      });
+      };
+      reader.readAsArrayBuffer(selectedFile);
     } else {
-      AntModal.confirm({
-        title: "ยืนยันนำเข้าคลังข้อมูลสารสนเทศ",
-        content: `ระบบตรวจวิเคราะห์พบเนื้อหาประเภทกลุ่ม [ ${detectedCategory} ] ต้องการจัดเก็บไฟล์นี้ใช่หรือไม่?`,
-        onOk() {
-          saveToLocalStorage(tempResult);
-          clearMainUpload();
-          message.success("อัปเดตฐานข้อมูลสำเร็จเรียบร้อยแล้ว ระบบพร้อมดึงไปแสดงผลตารางและพล็อตกราฟทันที");
-        }
-      });
-    }
-  };
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target.result;
+          const lines = text.split(/\r\n|\n/).filter((line) => line.trim() !== "");
 
-  const clearMainUpload = () => {
-    setFileName("");
-    setSelectedFile(null);
-    setDetectedCategory("");
-    setTempResult(null);
-    refreshExistingCategories();
-  };
+          if (lines.length > 0) {
+            let headerIndex = 0;
+            for (let i = 0; i < Math.min(lines.length, 10); i++) {
+              const parsed = parseCSVLine(lines[i]);
+              if (parsed.filter((x) => x !== "").length >= 2) {
+                headerIndex = i;
+                break;
+              }
+            }
 
-  
-  // LOGIC การจัดการรูปภาพอาจารย์ //  
-  const handleSaveBatchTeacherImages = async () => {
-    if (!isAdmin) {
-      message.error("สิทธิ์ไม่เพียงพอสำหรับการแก้ไขรูปภาพอาจารย์");
-      return;
-    }
+            const headers = parseCSVLine(lines[headerIndex]).map((h) => h.trim());
 
-    if (batchImageFiles.length === 0) {
-      message.warning("กรุณาเลือกรูปภาพหรือโฟลเดอร์รูปภาพก่อนครับ");
-      return;
-    }
+            const parsedRows = lines.slice(headerIndex + 1).map((line) => {
+              const values = parseCSVLine(line);
+              const rowObj = {};
+              let hasData = false;
+              headers.forEach((header, idx) => {
+                const hName = header || `col_${idx}`;
+                const val = values[idx] ? values[idx].trim() : "";
+                rowObj[hName] = val;
+                if (val !== "") hasData = true;
+              });
+              return hasData ? rowObj : null;
+            }).filter(Boolean);
 
-    const stored = localStorage.getItem("dashboardData");
-    const dashboard = stored ? JSON.parse(stored) : {};
-    let teachersList = cleanFacultyList(dashboard[facultyStorageKey] || facultyList);
-
-    if (teachersList.length === 0) {
-      message.error("ไม่พบข้อมูลอาจารย์ในระบบ กรุณาอัปโหลดไฟล์ Excel ข้อมูลอาจารย์ก่อนครับ");
-      return;
-    }
-
-    let updatedList = [...teachersList];
-    let matchedCount = 0;
-
-    try {
-      for (let file of batchImageFiles) {
-        // ตรวจสอบขนาดไฟล์ภาพไม่เกิน 2MB เพื่อป้องกัน localStorage เต็ม
-        if (file.size > 2 * 1024 * 1024) {
-          message.warning(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 2MB อาจทำให้ความจำระบบเต็มได้`);
-        }
-
-        const base64Image = await convertFileToBase64(file);
-        const fileNameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.'));
-        const cleanFileName = normalizeTeacherName(fileNameWithoutExt);
-
-        if (!cleanFileName) continue;
-
-        updatedList = updatedList.map(teacher => {
-          const teacherName = teacher["ชื่อ นามสกุล"] || teacher["ชื่อ-นามสกุล"] || teacher["ชื่ออาจารย์"] || teacher["ชื่อ"] || "";
-          const cleanTeacherName = normalizeTeacherName(teacherName);
-
-          if (cleanTeacherName && (cleanFileName.includes(cleanTeacherName) || cleanTeacherName.includes(cleanFileName))) {
-            matchedCount++;
-            return { ...teacher, รูปภาพ: base64Image, avatar: base64Image, image: base64Image };
+            setPreviewData({
+              totalRows: parsedRows.length,
+              previewRows: parsedRows
+            });
+            message.success(`อ่านไฟล์ CSV สำเร็จ ${parsedRows.length} แถว`);
           }
-          return teacher;
-        });
-      }
+        } catch (err) {
+          message.error("ไม่สามารถอ่านไฟล์ CSV ได้");
+        } finally {
+          setLoadingPreview(false);
+        }
+      };
+      reader.readAsText(selectedFile, "UTF-8");
+    }
+  };
 
-      if (matchedCount > 0) {
-        dashboard[facultyStorageKey] = updatedList;
-        dashboard["ข้อมูลอาจารย์"] = updatedList;
+  const handleConfirmUpload = () => {
+    if (!previewData || !targetTableName) return;
+
+    setLoadingConfirm(true);
+    setTimeout(() => {
+      try {
+        const stored = localStorage.getItem("dashboardData");
+        const dashboard = stored ? JSON.parse(stored) : {};
+
+        if (parsedSheetsData) {
+          Object.keys(parsedSheetsData).forEach((sheetName) => {
+            const rows = parsedSheetsData[sheetName];
+            const sName = sheetName.trim();
+
+            dashboard[sName] = rows;
+
+            if (sName.includes("อาจารย์") || sName.includes("faculty")) {
+              dashboard["ข้อมูลอาจารย์"] = rows;
+              dashboard["อาจารย์"] = rows;
+              dashboard["อาจารย์สาขา"] = rows;
+            } else if (sName.includes("งานทำ") || sName.includes("ภาวะการมีงานทำ")) {
+              dashboard["ข้อมูลภาวะการมีงานทำ"] = rows;
+              dashboard["ภาวะการมีงานทำ"] = rows;
+            } else if (sName.includes("วิจัย") || sName.includes("research")) {
+              dashboard["ข้อมูลวิจัย"] = rows;
+              dashboard["วิจัย"] = rows;
+            } else if (sName.includes("ประเมินคุณภาพหลักสูตร") || sName.includes("ประเมินหลักสูตร")) {
+              dashboard["ข้อมูลผลการประเมินคุณภาพหลักสูตร"] = rows;
+              dashboard["ผลการประเมินคุณภาพหลักสูตร"] = rows;
+            } else if (sName.includes("ประเมินคุณภาพบัณฑิต") || sName.includes("ประเมินบัณฑิต")) {
+              dashboard["ข้อมูลผลการประเมินคุณภาพบัณฑิต"] = rows;
+              dashboard["ผลการประเมินคุณภาพบัณฑิต"] = rows;
+            }
+          });
+        } else {
+          const keyName = targetTableName.trim();
+          const cleanedRows = previewData.previewRows.map((row) => {
+            const newRow = {};
+            Object.keys(row).forEach((k) => {
+              newRow[k.trim()] = row[k];
+            });
+            return newRow;
+          });
+
+          dashboard[keyName] = cleanedRows;
+
+          if (keyName.includes("อาจารย์") || keyName.includes("faculty")) {
+            dashboard["ข้อมูลอาจารย์"] = cleanedRows;
+            dashboard["อาจารย์"] = cleanedRows;
+            dashboard["อาจารย์สาขา"] = cleanedRows;
+          } else if (keyName.includes("งานทำ") || keyName.includes("ภาวะการมีงานทำ")) {
+            dashboard["ข้อมูลภาวะการมีงานทำ"] = cleanedRows;
+            dashboard["ภาวะการมีงานทำ"] = cleanedRows;
+          } else if (keyName.includes("สถานภาพ") || keyName.includes("student_status")) {
+            dashboard["ข้อมูลสถานภาพนิสิต"] = cleanedRows;
+            dashboard["สถานภาพนิสิต"] = cleanedRows;
+          } else if (keyName.includes("คงอยู่") || keyName.includes("student_retain")) {
+            dashboard["จำนวนนิสิตคงอยู่"] = cleanedRows;
+            dashboard["ข้อมูลนิสิตคงอยู่"] = cleanedRows;
+          } else if (keyName.includes("ประเมินคุณภาพหลักสูตร") || keyName.includes("ประเมินหลักสูตร")) {
+            dashboard["ข้อมูลผลการประเมินคุณภาพหลักสูตร"] = cleanedRows;
+            dashboard["ผลการประเมินคุณภาพหลักสูตร"] = cleanedRows;
+          } else if (keyName.includes("ประเมินคุณภาพบัณฑิต") || keyName.includes("ประเมินบัณฑิต")) {
+            dashboard["ข้อมูลผลการประเมินคุณภาพบัณฑิต"] = cleanedRows;
+            dashboard["ผลการประเมินคุณภาพบัณฑิต"] = cleanedRows;
+          }
+        }
 
         setDashboardData(dashboard);
         localStorage.setItem("dashboardData", JSON.stringify(dashboard));
         window.dispatchEvent(new Event("storage"));
 
-        message.success(`จับคู่และอัปเดตรูปภาพอาจารย์สำเร็จ ${matchedCount} คนเรียบร้อยแล้ว!`);
-        setBatchImageFiles([]);
+        message.success("นำเข้าและอัปเดตชุดข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว!");
+        clearMainUpload();
+        fetchDbTablesFromLocal();
         refreshExistingCategories();
-      } else {
-        message.error("ไม่พบชื่ออาจารย์ที่ตรงกับชื่อไฟล์รูปภาพเลย กรุณาตรวจสอบว่าชื่อไฟล์ตรงกับชื่ออาจารย์ในตารางหรือไม่");
+      } catch (err) {
+        message.error("เกิดข้อผิดพลาดในการบันทึกข้อมูลลง Local Storage");
+      } finally {
+        setLoadingConfirm(false);
       }
-    } catch (err) {
-      message.error("เกิดข้อผิดพลาดในการประมวลผลไฟล์รูปภาพ");
-      console.error(err);
-    }
+    }, 300);
   };
 
-  const saveToLocalStorage = (newData) => {
+  const clearMainUpload = () => {
+    setSelectedFile(null);
+    setTargetTableName("");
+    setPreviewData(null);
+    setParsedSheetsData(null);
+  };
+
+  const handleViewTableData = (tableName) => {
     const stored = localStorage.getItem("dashboardData");
-    let finalData = stored ? JSON.parse(stored) : {};
-    finalData = { ...finalData, ...newData };
-    setDashboardData(finalData);
-    localStorage.setItem("dashboardData", JSON.stringify(finalData));
-    
-    window.dispatchEvent(new Event("storage"));
-    refreshExistingCategories();
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        const rows = data[tableName] || [];
+        setSelectedTableData({
+          name: tableName,
+          rows: Array.isArray(rows) ? rows : []
+        });
+        setViewModalVisible(true);
+        return;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setSelectedTableData({ name: tableName, rows: [] });
+    setViewModalVisible(true);
   };
 
-  const handleDeleteCategory = (categoryName) => {
+  const openDeleteModal = (tableName) => {
     if (!isAdmin) {
-      message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถลบข้อมูลในคลังได้");
+      message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถลบข้อมูลได้");
       return;
     }
-
-    AntModal.confirm({
-      title: "ต้องการลบข้อมูลกลุ่มนี้ใช่หรือไม่?",
-      content: `หมวดข้อมูล "${categoryName}" จะถูกลบออกถาวร`,
-      okButtonProps: { danger: true },
-      onOk() {
-        const stored = localStorage.getItem("dashboardData");
-        if (stored) {
-          const data = JSON.parse(stored);
-          delete data[categoryName];
-          setDashboardData(data);
-          localStorage.setItem("dashboardData", JSON.stringify(data));
-          window.dispatchEvent(new Event("storage"));
-          refreshExistingCategories();
-          message.success("ลบข้อมูลออกจากคลังสำเร็จ");
-        }
-      }
-    });
+    setTableToDelete(tableName);
+    setDeleteConfirmInput("");
+    setDeleteModalVisible(true);
   };
 
-  const handleDeleteSurveyYear = (year) => {
-    if (!isAdmin) {
-      message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถลบข้อมูลสถิติรายปีได้");
+  const handleConfirmDeleteTable = () => {
+    if (deleteConfirmInput !== tableToDelete) {
+      message.error("ชื่อหมวดหมู่ที่พิมพ์ยืนยันไม่ถูกต้อง");
       return;
     }
 
     const stored = localStorage.getItem("dashboardData");
     if (stored) {
-      const data = JSON.parse(stored);
-      if (data["student_retain_survey_group"]) {
-        delete data["student_retain_survey_group"][year];
-        localStorage.setItem("dashboardData", JSON.stringify(data));
-        setDashboardData(data); 
+      try {
+        const dashboard = JSON.parse(stored);
+        delete dashboard[tableToDelete];
+
+        setDashboardData(dashboard);
+        localStorage.setItem("dashboardData", JSON.stringify(dashboard));
         window.dispatchEvent(new Event("storage"));
+
+        message.success(`ลบข้อมูล "${tableToDelete}" เรียบร้อยแล้ว`);
+        setDeleteModalVisible(false);
+        fetchDbTablesFromLocal();
         refreshExistingCategories();
+      } catch (err) {
+        message.error("เกิดข้อผิดพลาดในการลบข้อมูล");
       }
     }
   };
@@ -466,7 +520,20 @@ function UploadPage() {
     boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
   };
 
-  const activeSelectedTeacher = selectedTeacherIndex !== null ? facultyList[selectedTeacherIndex] : null;
+  const activeSelectedTeacher = (selectedTeacherIndex !== null && facultyList[selectedTeacherIndex]) ? facultyList[selectedTeacherIndex] : null;
+
+  const generateColumnsFromRows = (rows) => {
+    if (!Array.isArray(rows) || rows.length === 0 || !rows[0] || typeof rows[0] !== "object") return [];
+    return Object.keys(rows[0]).map(key => ({
+      title: key,
+      dataIndex: key,
+      key: key,
+      render: text => String(text ?? '')
+    }));
+  };
+
+  const previewRowsList = previewData?.previewRows || [];
+  const selectedTableRowsList = selectedTableData?.rows || [];
 
   return (
     <AntLayout style={{ minHeight: "100vh" }}>
@@ -478,18 +545,17 @@ function UploadPage() {
               Data Management
             </h2>
             <div style={{ color: "#8c8c8c", fontSize: "13px", lineHeight: "1.4", margin: 0 }}>
-              ระบบศูนย์กลางอัปโหลดไฟล์สารสนเทศ รูปภาพบุคลากร และประมวลผลกราฟสถิติต่างๆ ภายในคณะ
+              ระบบศูนย์กลางอัปโหลดไฟล์สารสนเทศดิบ (.xlsx, .csv) และจัดการข้อมูลภายในคณะ
             </div>
           </div>
         </Header>
 
         <Content style={{ padding: "24px 32px 32px 32px", background: "#f5f5f5" }}>
 
-          {/* แจ้งเตือนกรณีผู้ใช้ปัจจุบันไม่ใช่ Admin */}
           {!isAdmin && (
             <AntAlert
               message="โหมดอ่านอย่างเดียว (Read Only)"
-              description="คุณกำลังเข้าใช้งานในสิทธิ์ผู้ใช้ทั่วไป (User) บัญชีของคุณไม่มีสิทธิ์แก้ไข เพิ่มเติม หรือลบข้อมูลในหน้านี้ (เฉพาะบัญชี naramon.si@ku.th เท่านั้น)"
+              description="คุณกำลังเข้าใช้งานในสิทธิ์ผู้ใช้ทั่วไป (User) บัญชีของคุณไม่มีสิทธิ์แก้ไข หรืออัปโหลดข้อมูล"
               type="warning"
               showIcon
               icon={<LockOutlined />}
@@ -501,57 +567,91 @@ function UploadPage() {
             
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               
-              {/* 1. ช่องอัปโหลดไฟล์ Excel / CSV */}
-              <AntCard title="ช่องอัปโหลดไฟล์หลัก" style={{ ...commonCardStyle, borderTop: "4px solid #0050b3" }}>
+              <AntCard title="ช่องอัปโหลดและประมวลผลไฟล์ดิบ (.xlsx / .csv)" style={{ ...commonCardStyle, borderTop: "4px solid #0050b3" }}>
                 <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
-                  <b>ระบบวิเคราะห์ประเภทข้อมูลอัตโนมัติ:</b> วางไฟล์ข้อมูลดิบชุดใดก็ได้ ระบบจะทำการวิเคราะห์ความสอดคล้องของตาราง บันทึกเข้าคลัง และเตรียมประมวลผลขึ้นกราฟแสดงสัดส่วนให้อัตโนมัติทันที
+                  <b>ขั้นตอนอัปโหลด:</b> เลือกไฟล์ข้อมูล (.xlsx หรือ .csv) &rarr; ระบบจะตรวจสอบและวิเคราะห์ Sheet ย่อยให้อัตโนมัติ &rarr; ยืนยันบันทึก
                 </p>
-                <div style={{ border: `2px dashed ${isAdmin ? "#0050b3" : "#d9d9d9"}`, padding: "30px 16px", borderRadius: 12, textAlign: "center", background: isAdmin ? "#f0f5ff" : "#f5f5f5", transition: "all 0.3s ease", marginBottom: 16 }}>
-                  <UploadOutlined style={{ fontSize: 32, color: isAdmin ? "#0050b3" : "#bfbfbf", marginBottom: 12 }} />
-                  <div>
-                    <label htmlFor={isAdmin ? "file-upload" : ""} style={{ cursor: isAdmin ? "pointer" : "not-allowed", color: isAdmin ? "#0050b3" : "#bfbfbf", fontWeight: 700, fontSize: 14 }}>
-                      {isAdmin ? "คลิกเลือกไฟล์ชุดข้อมูล (.csv, .xlsx)" : "เฉพาะผู้ดูแลระบบเท่านั้นที่เลือกไฟล์ได้"}
-                    </label>
-                    {isAdmin && (
-                      <input id="file-upload" type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: "none" }} />
-                    )}
-                  </div>
-                </div>
-                {fileName && (
-                  <div style={{ background: "#f0fdf4", padding: 12, borderRadius: 10, border: "1px solid #bbf7d0", marginBottom: 16, fontSize: 13 }}>
-                    <FileExcelOutlined style={{ color: "#16a34a", marginRight: 6 }} /> <b>ไฟล์ที่เลือก:</b> {fileName}
-                    {detectedCategory && (
-                      <div style={{ marginTop: 6, color: "#166534" }}>
-                        ระบบตรวจพบและจำแนกเป็น: <b style={{ background: "#dcfce7", padding: "2px 6px", borderRadius: 4 }}>
-                          {detectedCategory}
-                        </b>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 16 }}>
+                  <AntUpload
+                    beforeUpload={handleSelectFile}
+                    fileList={selectedFile ? [selectedFile] : []}
+                    onRemove={() => clearMainUpload()}
+                    disabled={!isAdmin}
+                    maxCount={1}
+                    accept=".csv, .xlsx, .xls"
+                  >
+                    <AntButton icon={<FileExcelOutlined />} disabled={!isAdmin}>
+                      เลือกไฟล์ชุดข้อมูล (.xlsx / .csv)
+                    </AntButton>
+                  </AntUpload>
+
+                  {selectedFile && (
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#262626", marginBottom: 6 }}>
+                        หมวดหมู่ข้อมูลหลักที่ตรวจพบ:
                       </div>
+                      <AntInput 
+                        value={targetTableName} 
+                        onChange={(e) => setTargetTableName(e.target.value)} 
+                        placeholder="ระบุชื่อหมวดหมู่ เช่น ข้อมูลอาจารย์ หรือ ข้อมูลผลการประเมินคุณภาพหลักสูตร"
+                        disabled={!isAdmin}
+                        style={{ borderRadius: 8 }}
+                      />
+                    </div>
+                  )}
+
+                  <Space size="middle">
+                    <AntButton
+                      type="primary"
+                      onClick={handlePreviewUpload}
+                      loading={loadingPreview}
+                      disabled={!selectedFile || !isAdmin}
+                      style={{ borderRadius: 8, background: isAdmin ? "#0050b3" : "#d9d9d9", borderColor: isAdmin ? "#0050b3" : "#d9d9d9" }}
+                    >
+                      ตรวจสอบ & Preview ไฟล์ดิบ
+                    </AntButton>
+
+                    {previewData && (
+                      <AntButton
+                        type="primary"
+                        icon={<CheckCircleOutlined />}
+                        onClick={handleConfirmUpload}
+                        loading={loadingConfirm}
+                        disabled={!isAdmin}
+                        style={{ borderRadius: 8, background: "#52c41a", borderColor: "#52c41a" }}
+                      >
+                        ยืนยันบันทึกข้อมูล
+                      </AntButton>
                     )}
+                  </Space>
+                </div>
+
+                {previewData && (
+                  <div style={{ marginTop: 16, padding: 16, background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "#1e293b", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+                      <span>📋 ตัวอย่างข้อมูลดิบ (Preview)</span>
+                      <Tag color="blue">พบทั้งหมด {previewRowsList.length} แถว</Tag>
+                    </div>
+
+                    <div style={{ overflowX: "auto", maxHeight: 250 }}>
+                      <AntTable
+                        dataSource={previewRowsList}
+                        columns={generateColumnsFromRows(previewRowsList)}
+                        pagination={{ pageSize: 5 }}
+                        size="small"
+                        rowKey={(_, idx) => idx}
+                      />
+                    </div>
                   </div>
                 )}
-                <AntButton 
-                  type="primary" 
-                  icon={<CheckCircleOutlined />} 
-                  disabled={!selectedFile || !isAdmin} 
-                  onClick={handleUpload} 
-                  style={{ width: "100%", height: 42, borderRadius: 10, background: isAdmin ? "#0050b3" : "#d9d9d9", borderColor: isAdmin ? "#0050b3" : "#d9d9d9", fontWeight: 600, fontSize: 14 }}
-                >
-                  {isAdmin ? "วิเคราะห์และบันทึกเข้าสู่ระบบ" : "ไม่มีสิทธิ์บันทึกข้อมูล"}
-                </AntButton>
               </AntCard>
 
-              {/*  2. ช่องอัปโหลดรูปภาพประจำตัวอาจารย์ */}
+              {/* ช่องอัปโหลดรูปภาพโปรไฟล์อาจารย์ */}
               <AntCard title={<span><PictureOutlined style={{ marginRight: 8, color: "#722ed1" }} /> ช่องอัปโหลดรูปภาพโปรไฟล์อาจารย์</span>} style={{ ...commonCardStyle, borderTop: "4px solid #722ed1" }}>
                 <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
-                  อัปโหลดภาพถ่ายอาจารย์เพื่อไปแสดงผลการ์ดโปรไฟล์ในหน้า <b>FacultyPage</b>
+                  เลือกรายชื่ออาจารย์เพื่อเปลี่ยน หรือปรับแต่งแก้ไขภาพถ่ายประจำตัว
                 </p>
-
-                {/* กล่องแสดงสถานะจำนวนอาจารย์ */}
-                <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 8, fontSize: 12, background: facultyList.length > 0 ? "#f6ffed" : "#fff2f0", border: `1px solid ${facultyList.length > 0 ? "#b7eb8f" : "#ffccc7"}`, color: facultyList.length > 0 ? "#389e0d" : "#cf1322" }}>
-                  {facultyList.length > 0 
-                    ? `✅ ตรวจพบอาจารย์ในระบบทั้งหมด ${facultyList.length} ท่าน `
-                    : `⚠️ ยังไม่พบรายชื่ออาจารย์ในระบบ กรุณาอัปโหลดไฟล์ตารางอาจารย์ (Excel) ในช่องด้านบนก่อนครับ`}
-                </div>
 
                 <AntTabs
                   defaultActiveKey="single"
@@ -561,13 +661,9 @@ function UploadPage() {
                       label: "👤 เลือกรายชื่ออัปโหลดรายบุคคล",
                       children: (
                         <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingTop: 8 }}>
-                          <div style={{ fontSize: 12, color: "#595959", background: "#f6ffed", padding: 10, borderRadius: 8, border: "1px solid #b7eb8f" }}>
-                            💡 <b>วิธีใช้งาน:</b> เลือกรายชื่ออาจารย์จาก Dropdown ด้านล่าง หรือค้นหาด้วยชื่อ แล้วกดเลือกรูปภาพเพื่อเปลี่ยนรูป
-                          </div>
-
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: "#262626" }}>
-                               เลือกรายชื่ออาจารย์ ({facultyList.length} ท่าน):
+                              เลือกรายชื่ออาจารย์ ({facultyList.length} ท่าน):
                             </div>
                             <AntSelect
                               showSearch
@@ -575,26 +671,19 @@ function UploadPage() {
                               style={{ width: "100%", height: 42 }}
                               value={selectedTeacherIndex}
                               onChange={(val) => setSelectedTeacherIndex(val)}
-                              filterOption={(input, option) =>
-                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                              }
-                              options={facultyList.map((t, idx) => {
-                                const name = t["ชื่อ นามสกุล"] || t["ชื่อ-นามสกุล"] || t["ชื่ออาจารย์"] || t["ชื่อ"] || `อาจารย์ท่านที่ ${idx + 1}`;
-                                const hasImg = t.รูปภาพ || t.avatar || t.image;
-                                return {
-                                  value: idx,
-                                  label: `${idx + 1}. ${name} ${hasImg ? "🟢 (มีรูปแล้ว)" : "⚪ (ยังไม่มีรูป)"}`
-                                };
-                              })}
+                              options={facultyList.map((t, idx) => ({
+                                value: idx,
+                                label: `${idx + 1}. ${t["ชื่อ นามสกุล"] || t["ชื่อ-นามสกุล"] || t["ชื่ออาจารย์"] || t["ชื่อ"] || `อาจารย์ท่านที่ ${idx + 1}`}`
+                              }))}
                             />
                           </div>
 
                           {activeSelectedTeacher ? (
                             <div style={{ background: "#fafafa", border: "1px solid #e8e8e8", borderRadius: 12, padding: 16, textAlign: "center" }}>
                               <div style={{ marginBottom: 12 }}>
-                                {activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar ? (
+                                {activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar || activeSelectedTeacher.image ? (
                                   <img 
-                                    src={activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar} 
+                                    src={activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar || activeSelectedTeacher.image} 
                                     alt="Avatar" 
                                     style={{ width: 90, height: 90, borderRadius: "50%", objectFit: "cover", border: "3px solid #722ed1" }} 
                                   />
@@ -605,28 +694,45 @@ function UploadPage() {
                                 )}
                               </div>
 
-                              <div style={{ fontWeight: 700, fontSize: 15, color: "#1f1f1f" }}>
+                              <div style={{ fontWeight: 700, fontSize: 15, color: "#1f1f1f", marginBottom: 12 }}>
                                 {activeSelectedTeacher["ชื่อ นามสกุล"] || activeSelectedTeacher["ชื่อ-นามสกุล"] || activeSelectedTeacher["ชื่ออาจารย์"] || activeSelectedTeacher["ชื่อ"]}
                               </div>
-                              <div style={{ fontSize: 12, color: "#8c8c8c", marginBottom: 16 }}>
-                                {activeSelectedTeacher["ชื่อสาขา"] || activeSelectedTeacher["สาขาวิชา"] || activeSelectedTeacher["สาขา"] || "สังกัดคณะ"}
-                              </div>
 
-                              <AntButton 
-                                type="primary" 
-                                icon={<UploadOutlined />} 
-                                disabled={!isAdmin}
-                                style={{ background: isAdmin ? "#722ed1" : "#d9d9d9", borderColor: isAdmin ? "#722ed1" : "#d9d9d9", borderRadius: 8, height: 38 }}
-                                onClick={() => {
-                                  if (!isAdmin) {
-                                    message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่อัปโหลดรูปโปรไฟล์ได้");
-                                    return;
-                                  }
-                                  document.getElementById("single-teacher-file-input").click();
-                                }}
-                              >
-                                {(activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar) ? "เปลี่ยนรูปภาพโปรไฟล์ใหม่" : "อัปโหลดรูปภาพประจำตัว"}
-                              </AntButton>
+                              <Space wrap style={{ justifyContent: "center" }}>
+                                {/* ปุ่มเลือกไฟล์ใหม่ */}
+                                <AntButton 
+                                  type="primary" 
+                                  icon={<UploadOutlined />} 
+                                  disabled={!isAdmin}
+                                  style={{ background: isAdmin ? "#722ed1" : "#d9d9d9", borderColor: isAdmin ? "#722ed1" : "#d9d9d9", borderRadius: 8, height: 38 }}
+                                  onClick={() => {
+                                    const fileInput = document.getElementById("single-teacher-file-input");
+                                    if (fileInput) fileInput.click();
+                                  }}
+                                >
+                                  อัปโหลดรูปใหม่
+                                </AntButton>
+
+                                {/* ปุ่มปรับแต่ง/ตัดรูปเดิม */}
+                                <AntButton 
+                                  icon={<ScissorOutlined />} 
+                                  disabled={!isAdmin || !(activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar || activeSelectedTeacher.image)}
+                                  style={{ borderRadius: 8, height: 38 }}
+                                  onClick={() => {
+                                    const currentImg = activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar || activeSelectedTeacher.image;
+                                    if (currentImg) {
+                                      setTempImageSrc(currentImg);
+                                      setZoom(1);
+                                      setCrop({ x: 0, y: 0 });
+                                      setCropModalVisible(true);
+                                    } else {
+                                      message.warning("อาจารย์ท่านนี้ยังไม่มีรูปภาพ ให้ทำการอัปโหลดรูปใหม่ก่อนครับ");
+                                    }
+                                  }}
+                                >
+                                  ปรับแต่งรูป
+                                </AntButton>
+                              </Space>
 
                               <input
                                 id="single-teacher-file-input"
@@ -635,97 +741,23 @@ function UploadPage() {
                                 style={{ display: "none" }}
                                 onChange={async (e) => {
                                   if (!isAdmin) return;
-                                  const file = e.target.files[0];
+                                  const file = e.target.files?.[0];
                                   if (!file) return;
 
                                   try {
                                     const base64Image = await convertFileToBase64(file);
-                                    const stored = localStorage.getItem("dashboardData");
-                                    if (!stored) return;
-
-                                    const dashboard = JSON.parse(stored);
-                                    let teachersList = cleanFacultyList(dashboard[facultyStorageKey] || facultyList);
-
-                                    const selectedName = activeSelectedTeacher["ชื่อ นามสกุล"] || activeSelectedTeacher["ชื่อ-นามสกุล"] || activeSelectedTeacher["ชื่ออาจารย์"] || activeSelectedTeacher["ชื่อ"];
-
-                                    const updatedList = teachersList.map((item) => {
-                                      const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "";
-                                      if (cleanString(name) === cleanString(selectedName)) {
-                                        return { ...item, รูปภาพ: base64Image, avatar: base64Image, image: base64Image };
-                                      }
-                                      return item;
-                                    });
-
-                                    dashboard[facultyStorageKey] = updatedList;
-                                    dashboard["ข้อมูลอาจารย์"] = updatedList;
-
-                                    setDashboardData(dashboard);
-                                    localStorage.setItem("dashboardData", JSON.stringify(dashboard));
-                                    window.dispatchEvent(new Event("storage"));
-
-                                    message.success(`บันทึกรูปภาพของ ${selectedName} เรียบร้อยแล้ว`);
-                                    e.target.value = ""; // Reset input
-                                    refreshExistingCategories();
+                                    setTempImageSrc(base64Image);
+                                    setZoom(1);
+                                    setCrop({ x: 0, y: 0 });
+                                    setCropModalVisible(true);
+                                    e.target.value = "";
                                   } catch (err) {
-                                    message.error("เกิดข้อผิดพลาดในการบันทึกรูปภาพ");
+                                    message.error("เกิดข้อผิดพลาดในการโหลดรูปภาพ");
                                   }
                                 }}
                               />
                             </div>
-                          ) : (
-                            <div style={{ padding: "20px", border: "1px dashed #d9d9d9", borderRadius: 12, textAlign: "center", color: "#8c8c8c", fontSize: 13 }}>
-                              คลิกเลือกรายชื่ออาจารย์จาก Dropdown ด้านบนเพื่อเริ่มอัปโหลดรูปภาพ
-                            </div>
-                          )}
-                        </div>
-                      )
-                    },
-                    {
-                      key: "batch",
-                      label: " อัปโหลดทั้งโฟลเดอร์",
-                      children: (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 8 }}>
-                          <div style={{ fontSize: 12, color: "#595959", background: "#f9f0ff", padding: 12, borderRadius: 8, border: "1px solid #d3adf7", lineHeight: "1.6" }}>
-                           <b>วิธีใช้งานระบบอ่านรูปภาพอัตโนมัติ:</b>
-                            <br />1. ตั้งชื่อไฟล์รูปภาพให้มีชื่ออาจารย์ เช่น <code>สมชาย_ใจดี.jpg</code> หรือ <code>ดร.สมชาย.png</code>
-                            <br />2. ลากรูปภาพทั้งหมดจากโฟลเดอร์มาวางลงในช่องด้านล่าง แล้วกดบันทึก
-                          </div>
-
-                          <AntUpload.Dragger
-                            multiple
-                            accept="image/*"
-                            disabled={!isAdmin}
-                            beforeUpload={(file) => {
-                              if (!isAdmin) {
-                                message.error("เฉพาะผู้ดูแลระบบเท่านั้นที่อัปโหลดรูปภาพได้");
-                                return false;
-                              }
-                              setBatchImageFiles(prev => [...prev, file]);
-                              return false;
-                            }}
-                            onRemove={(file) => {
-                              setBatchImageFiles(prev => prev.filter(f => f.uid !== file.uid));
-                            }}
-                            fileList={batchImageFiles}
-                          >
-                            <p className="ant-upload-drag-icon">
-                              <FolderOpenOutlined style={{ color: isAdmin ? "#722ed1" : "#bfbfbf", fontSize: 36 }} />
-                            </p>
-                            <p style={{ fontWeight: 600, color: "#262626", margin: "4px 0" }}>
-                              {isAdmin ? "ลากไฟล์รูปภาพทั้งหมดในโฟลเดอร์มาวางที่นี่ หรือคลิกเพื่อเลือก" : "ปิดการใช้งานสำหรับสิทธิ์ผู้ใช้ทั่วไป"}
-                            </p>
-                            <p style={{ fontSize: 12, color: "#8c8c8c" }}>ระบบจะจับคู่ชื่อไฟล์กับรายชื่ออาจารย์ให้อัตโนมัติ</p>
-                          </AntUpload.Dragger>
-
-                          <AntButton
-                            type="primary"
-                            icon={<CheckCircleOutlined />}
-                            onClick={handleSaveBatchTeacherImages}
-                            disabled={batchImageFiles.length === 0 || !isAdmin}
-                            style={{ height: 42, borderRadius: 8, background: isAdmin ? "#722ed1" : "#d9d9d9", borderColor: isAdmin ? "#722ed1" : "#d9d9d9", fontWeight: 600 }}
-                          >
-                            {isAdmin ? `ประมวลผลจับคู่และบันทึกรูปภาพ (${batchImageFiles.length} รูป)` : "เฉพาะผู้ดูแลระบบเท่านั้น"}
-                          </AntButton>
+                          ) : null}
                         </div>
                       )
                     }
@@ -735,56 +767,55 @@ function UploadPage() {
 
             </div>
 
-            {/* แสดงคลังข้อมูลในระบบปัจจุบัน */}
-            <AntCard title={<span><DatabaseOutlined style={{ marginRight: 8, color: "#0077b6" }} /> คลังข้อมูลระบบปัจจุบัน</span>} style={{ ...commonCardStyle, position: "sticky", top: 24 }}>
+            {/* คลังข้อมูลหมวดหมู่ในระบบ */}
+            <AntCard 
+              title={
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span><DatabaseOutlined style={{ marginRight: 8, color: "#0077b6" }} /> คลังข้อมูลหมวดหมู่ในระบบ</span>
+                  <AntButton size="small" onClick={fetchDbTablesFromLocal}>รีเฟรช</AntButton>
+                </div>
+              } 
+              style={{ ...commonCardStyle, position: "sticky", top: 24 }}
+            >
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {existingCategories.length === 0 ? (
+                {dbTables.length === 0 ? (
                   <div style={{ textAlign: "center", color: "#8c8c8c", padding: "40px 0" }}>
-                    ยังไม่มีข้อมูลบันทึกในคลังระบบ
+                    ยังไม่มีชุดข้อมูลในระบบ
                   </div>
                 ) : (
-                  existingCategories.map((category) => {
-                    const isSurveyGroup = category === "student_retain_survey_group";
-                    
+                  dbTables.map((tbl, index) => {
+                    const tableName = tbl.tableName;
+                    const rowCount = tbl.rowCount;
+
                     return (
-                      <div key={category} style={{ padding: "16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <DatabaseOutlined style={{ color: "#0077b6", fontSize: 18 }} />
+                      <div key={tableName + index} style={{ padding: "14px 16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <DatabaseOutlined style={{ color: "#0077b6", fontSize: 16 }} />
                             <span style={{ fontWeight: 600, color: "#1e293b", fontSize: 14 }}>
-                              {category}
+                              {tableName}
                             </span>
                           </div>
+                          <span style={{ fontSize: 12, color: "#64748b", paddingLeft: 24 }}>
+                            จำนวน {rowCount} รายการ
+                          </span>
+                        </div>
+
+                        <Space>
+                          <AntButton
+                            type="text"
+                            icon={<EyeOutlined style={{ color: "#0077b6" }} />}
+                            onClick={() => handleViewTableData(tableName)}
+                          />
                           {isAdmin && (
                             <AntButton
                               type="text"
                               danger
                               icon={<DeleteOutlined />}
-                              onClick={() => handleDeleteCategory(category)}
+                              onClick={() => openDeleteModal(tableName)}
                             />
                           )}
-                        </div>
-
-                        {/* แสดงย่อยกรณีเป็นหมวดหมู่รายปี */}
-                        {isSurveyGroup && surveyYearsList.length > 0 && (
-                          <div style={{ marginTop: 12, paddingLeft: 12, borderLeft: "2px solid #cbd5e1", display: "flex", flexDirection: "column", gap: 6 }}>
-                            <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>ปีการศึกษาที่มีข้อมูล:</div>
-                            {surveyYearsList.map((year) => (
-                              <div key={year} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#fff", padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 12 }}>
-                                <span>📅 ปีการศึกษา {year}</span>
-                                {isAdmin && (
-                                  <AntButton
-                                    type="text"
-                                    danger
-                                    size="small"
-                                    icon={<DeleteOutlined />}
-                                    onClick={() => handleDeleteSurveyYear(year)}
-                                  />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        </Space>
                       </div>
                     );
                   })
@@ -795,6 +826,138 @@ function UploadPage() {
           </div>
         </Content>
       </AntLayout>
+
+      {/* Modal ดูข้อมูล */}
+      <AntModal
+        title={`หมวดหมู่ข้อมูล: ${selectedTableData?.name || ''}`}
+        open={viewModalVisible}
+        onCancel={() => setViewModalVisible(false)}
+        footer={[
+          <AntButton key="close" onClick={() => setViewModalVisible(false)}>
+            ปิดหน้าต่าง
+          </AntButton>
+        ]}
+        width={850}
+      >
+        <div style={{ maxHeight: 400, overflow: "auto", marginTop: 16 }}>
+          <AntTable
+            dataSource={selectedTableRowsList}
+            columns={generateColumnsFromRows(selectedTableRowsList)}
+            pagination={{ pageSize: 5 }}
+            size="small"
+            rowKey={(_, idx) => idx}
+          />
+        </div>
+      </AntModal>
+
+      {/* Modal ลบข้อมูล */}
+      <AntModal
+        title={
+          <span style={{ color: "#ff4d4f" }}>
+            <ExclamationCircleOutlined style={{ marginRight: 8 }} />
+            ยืนยันการลบชุดข้อมูล
+          </span>
+        }
+        open={deleteModalVisible}
+        onOk={handleConfirmDeleteTable}
+        onCancel={() => setDeleteModalVisible(false)}
+        okText="ยืนยันลบข้อมูล"
+        okButtonProps={{ danger: true, disabled: deleteConfirmInput !== tableToDelete }}
+        cancelText="ยกเลิก"
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+          <div>
+            หมวดหมู่ <b>{tableToDelete}</b> จะถูกลบออกจากระบบ
+          </div>
+          <div style={{ fontSize: 13, color: "#8c8c8c" }}>
+            พิมพ์ <b>{tableToDelete}</b> ด้านล่างเพื่อยืนยัน:
+          </div>
+          <AntInput
+            value={deleteConfirmInput}
+            onChange={(e) => setDeleteConfirmInput(e.target.value)}
+            placeholder={`พิมพ์ "${tableToDelete}" ที่นี่`}
+            style={{ borderRadius: 8 }}
+          />
+        </div>
+      </AntModal>
+
+      {/* Modal สำหรับตัด/ปรับขนาดรูปภาพอาจารย์ */}
+      <AntModal
+        title={<span><ScissorOutlined style={{ marginRight: 8, color: "#722ed1" }} /> ปรับขนาดและตัดรูปภาพโปรไฟล์</span>}
+        open={cropModalVisible}
+        onCancel={() => {
+          setCropModalVisible(false);
+          setTempImageSrc(null);
+        }}
+        onOk={async () => {
+          try {
+            const croppedBase64 = await getCroppedImg(tempImageSrc, croppedAreaPixels);
+            
+            const stored = localStorage.getItem("dashboardData");
+            if (!stored) return;
+
+            const dashboard = JSON.parse(stored);
+            let teachersList = cleanFacultyList(dashboard[facultyStorageKey] || facultyList);
+
+            const selectedName = activeSelectedTeacher["ชื่อ นามสกุล"] || activeSelectedTeacher["ชื่อ-นามสกุล"] || activeSelectedTeacher["ชื่ออาจารย์"] || activeSelectedTeacher["ชื่อ"];
+
+            const updatedList = teachersList.map((item) => {
+              const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "";
+              if (cleanString(name) === cleanString(selectedName)) {
+                return { ...item, รูปภาพ: croppedBase64, avatar: croppedBase64, image: croppedBase64 };
+              }
+              return item;
+            });
+
+            dashboard[facultyStorageKey] = updatedList;
+            dashboard["ข้อมูลอาจารย์"] = updatedList;
+
+            setDashboardData(dashboard);
+            localStorage.setItem("dashboardData", JSON.stringify(dashboard));
+            window.dispatchEvent(new Event("storage"));
+
+            message.success(`บันทึกรูปภาพของ ${selectedName} เรียบร้อยแล้ว`);
+            setCropModalVisible(false);
+            setTempImageSrc(null);
+            refreshExistingCategories();
+          } catch (e) {
+            console.error(e);
+            message.error("เกิดข้อผิดพลาดในการบันทึกรูปภาพที่ตัด");
+          }
+        }}
+        okText="ตัดรูปและบันทึก"
+        cancelText="ยกเลิก"
+        destroyOnClose
+      >
+        <div style={{ position: "relative", width: "100%", height: 300, background: "#333", borderRadius: 8, overflow: "hidden" }}>
+          {tempImageSrc && (
+            <Cropper
+              image={tempImageSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={false}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+            />
+          )}
+        </div>
+        
+        <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 13, color: "#64748b" }}>ซูมรูปภาพ:</span>
+          <Slider
+            min={1}
+            max={3}
+            step={0.1}
+            value={zoom}
+            onChange={(z) => setZoom(z)}
+            style={{ flex: 1 }}
+          />
+        </div>
+      </AntModal>
+
     </AntLayout>
   );
 }
