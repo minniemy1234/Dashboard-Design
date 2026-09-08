@@ -14,12 +14,13 @@ import Dashboard from "./pages/Dashboard";
 import UploadPage from "./pages/UploadPage";
 import StudentPage from "./pages/StudentPage";
 import FacultyPage from "./pages/FacultyPage";
-import SummaryPage from "./pages/SummaryPage";
 import StudentStatus from "./pages/StudentStatus";
 import EvaluationPage from "./pages/EvaluationPage";
 import GraduateQualityPage from "./pages/GraduateQualityPage";
 import CoursePage from "./pages/CoursePage";
 import AdminManagementPage from "./pages/AdminManagementPage";
+import ResearchPage from "./pages/ResearchPage";
+import FinancePage from "./pages/FinancePage";
 
 const GOOGLE_CLIENT_ID = "279564406031-jmit17s4jtcvrnbdolg8glqhdp9divj5.apps.googleusercontent.com";
 
@@ -57,11 +58,12 @@ function App() {
             <Route path="/employment" element={<EmploymentPage />} />
             <Route path="/students" element={<StudentPage />} />
             <Route path="/faculty" element={<FacultyPage />} />
-            <Route path="/summary" element={<SummaryPage />} />
             <Route path="/student-status" element={<StudentStatus />} />
             <Route path="/evaluation" element={<EvaluationPage />} />
             <Route path="/graduate-quality" element={<GraduateQualityPage />} />
             <Route path="/courses" element={<CoursePage />} />
+            <Route path="/research" element={<ResearchPage />} />
+            <Route path="/finance" element={<FinancePage />} />
           </Route>
 
           {/* ล็อกเฉพาะ Admin เข้าได้ */}
