@@ -34,7 +34,7 @@ function GraduateQualityPage() {
   // ⚡ สเตตสำหรับ "แบนเนอร์วิเคราะห์แนวโน้มย้อนหลัง" (ฟิกขอบเขตย้อนหลังไว้ที่ 4 ปี)
   const [trendYear, setTrendYear] = useState("");
   const [trendMajor, setTrendMajor] = useState("");
-  const trendRange = "4"; // 🔒 ล็อกไว้ที่ 4 ปีการศึกษา
+  const trendRange = "4"; 
 
   // 1. โหลดข้อมูลจริงจาก localStorage
   useEffect(() => {
@@ -158,7 +158,7 @@ function GraduateQualityPage() {
     };
   }, [processedData]);
 
-  // 🎨 กำหนดชุดสีของแต่ละแท่งสำหรับกราฟแผนภูมิเปรียบเทียบค่าเฉลี่ยรายด้าน (TQF)
+ 
   const tqfColors = [
     "#c5979d", 
     "#4b8f8c", 
@@ -424,7 +424,7 @@ function GraduateQualityPage() {
               <div style={{ marginBottom: 32 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
                   
-                  {/* 📊 กราฟที่ 1: คะแนนเฉลี่ยรวมทุกด้าน */}
+                  {/*  กราฟที่ 1: คะแนนเฉลี่ยรวมทุกด้าน */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -460,7 +460,7 @@ function GraduateQualityPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 2: คุณธรรม จริยธรรม */}
+                  {/* กราฟที่ 2: คุณธรรม จริยธรรม */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -496,7 +496,7 @@ function GraduateQualityPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 3: ด้านความรู้ */}
+                  {/* กราฟที่ 3: ด้านความรู้ */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -532,7 +532,7 @@ function GraduateQualityPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 4: ทักษะทางปัญญา */}
+                  {/* กราฟที่ 4: ทักษะทางปัญญา */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -568,7 +568,7 @@ function GraduateQualityPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 5: ทักษะความสัมพันธ์ระหว่างบุคคล */}
+                  {/* กราฟที่ 5: ทักษะความสัมพันธ์ระหว่างบุคคล */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "11px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -604,7 +604,7 @@ function GraduateQualityPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 6: ทักษะวิเคราะห์ตัวเลข/สื่อสาร/ไอที */}
+                  {/* กราฟที่ 6: ทักษะวิเคราะห์ตัวเลข/สื่อสาร/ไอที */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "11px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -643,7 +643,7 @@ function GraduateQualityPage() {
                 </div>
               </div>
             );
-          })()} {/* 👈 ปิดวงเล็บ Arrow Function ที่ขาดไป */}
+          })()} 
 
           {/* TABLE ZONE */}
           <div style={{ background: "white", padding: 24, borderRadius: 16 }}>
