@@ -417,7 +417,7 @@ function EvaluationPage() {
             </div>
           </Spin>
 
-          {/* 📊 CHART ZONE (แผนภูมิแท่งผลการประเมินคุณภาพรายองค์ประกอบ) */}
+          {/* CHART ZONE (แผนภูมิแท่งผลการประเมินคุณภาพรายองค์ประกอบ) */}
           <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <BarChartOutlined style={{ fontSize: 20, color: "#722ed1" }} />
@@ -443,7 +443,7 @@ function EvaluationPage() {
             </Spin>
           </div>
 
-          {/* 📈 วิเคราะห์แนวโน้มผลการประเมินคุณภาพย้อนหลัง 4 ปี (TQF) (โซน 9 กราฟย้อนหลัง - ฟิลเตอร์ทำงานอิสระ 100%) */}
+          {/* วิเคราะห์แนวโน้มผลการประเมินคุณภาพย้อนหลัง 4 ปี */}
           <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
             
             <div style={{
