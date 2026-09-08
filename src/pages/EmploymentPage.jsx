@@ -18,15 +18,13 @@ import {
 } from "recharts";
 import { SearchOutlined, IdcardOutlined } from "@ant-design/icons";
 
-// 🔥 Firebase Config Import (ปรับ Path ตามโปรเจกต์ของคุณ เช่น "../firebase")
+// Firebase Config Import 
 import { db } from "../firebase";
 import { collection, onSnapshot, query } from "firebase/firestore";
 
 const { Header, Content } = Layout;
 
-// ==========================================
-// 🛠️ 1. COMPONENT ตารางรายละเอียด (สูตรคำนวณแบบประกันคุณภาพ)
-// ==========================================
+// 1. COMPONENT ตารางรายละเอียด 
 const EmploymentTable = ({ dataSource, yearsList, cleanString, extractYear }) => {
   const [tableYearFilter, setTableYearFilter] = useState("");
 
@@ -126,9 +124,7 @@ const EmploymentTable = ({ dataSource, yearsList, cleanString, extractYear }) =>
   );
 };
 
-// ==========================================
-// 📊 2. MAIN PAGE COMPONENT
-// ==========================================
+// 2. MAIN PAGE COMPONENT
 function EmploymentPage() {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedMajor, setSelectedMajor] = useState("");
@@ -140,17 +136,16 @@ function EmploymentPage() {
   // สเตตสำหรับ "แบนเนอร์แนวโน้มข้อมูลย้อนหลัง"
   const [trendYear, setTrendYear] = useState("");
   const [trendMajor, setTrendMajor] = useState("");
-  const [trendRange] = useState("4"); // กำหนดเป็นย้อนหลัง 4 ปีตาม UI ใหม่
+  const [trendRange] = useState("4"); 
 
   const COLORS_NAVY_THEME = ["#023e8a", "#0077b6", "#0096c7", "#00b4d8", "#48cae4", "#90e0ef"];
   const COLORS_MATCH_THEME = ["#0077b6", "#f43f5e"];
 
-  // ⚡ ดึงข้อมูลแบบ Real-time จาก Firebase Cloud Firestore (พร้อม Fallback localStorage)
+  // ⚡ ดึงข้อมูลแบบ Real-time จาก Firebase Cloud Firestore
   useEffect(() => {
     let unsubscribe = () => {};
 
     try {
-      // ระบุ Collection ที่จัดเก็บข้อมูลภาวะการมีงานทำ (ปรับชื่อ collection ให้ตรงกับใน Firestore ของคุณ)
       const q = query(collection(db, "employment_data"));
 
       unsubscribe = onSnapshot(q, (snapshot) => {
@@ -159,7 +154,6 @@ function EmploymentPage() {
           setRawData(fetchedData);
           setStaticDataForTable(fetchedData);
         } else {
-          // ถ้าใน Firestore ยังไม่มีข้อมูล ให้ดึงจาก localStorage แทน
           fallbackToLocalStorage();
         }
         setLoading(false);
@@ -235,8 +229,8 @@ function EmploymentPage() {
           return foundKey ? Number(item[foundKey] || 0) : 0;
         };
 
-        const totalGraduates = getVal("ผู้สำเร็จการศึกษา");
-        const respondents = getVal("ผู้บันทึกข้อมูลจำนวน");
+        const totalGraduates = getVal("ผู้สำเร็จการศึกษา") || getVal("จำนวนบัณฑิตทั้งหมด") || getVal("ผู้มีสิทธิ์ตอบ");
+        const respondents = getVal("ผู้บันทึกข้อมูลจำนวน") || getVal("ผู้ตอบแบบสำรวจ");
 
         const gov = getVal("ทำงานในหน่วยงานรัฐ จำนวน");
         const state = getVal("ทำงานในหน่วยงานรัฐวิสาหกิจ จำนวน");
@@ -377,9 +371,19 @@ function EmploymentPage() {
     );
   };
 
+  // 🎨 ปรับปรุงไล่สีจาก เข้ม -> อ่อน (Navy/Blue Theme) ตามลำดับค่ามากไปน้อย
   const dynamicChartData = useMemo(() => {
     if (processedData.length === 0) return [];
-    const colorPalette = ["#0050b3", "#3b6290", "#00b4d8", "#5b84b1", "#76a2ca", "#a6c8e0"];
+    
+    // โทนสีน้ำเงิน-ฟ้า ไล่จากเข้มสุดไปอ่อนสุด
+    const gradientNavyPalette = [
+      "#03045e", // เข้มสุด (สำหรับแท่งมากสุด)
+      "#0077b6", 
+      "#0096c7", 
+      "#00b4d8", 
+      "#48cae4", 
+      "#90e0ef"  // อ่อนสุด (สำหรับแท่งน้อยสุด)
+    ];
 
     const list = [
       { name: "หน่วยงานเอกชน", จำนวนคน: totals.privateOrg },
@@ -392,16 +396,14 @@ function EmploymentPage() {
 
     return list
       .filter(item => item.จำนวนคน > 0)
-      .sort((a, b) => b.จำนวนคน - a.จำนวนคน)
+      .sort((a, b) => b.จำนวนคน - a.จำนวนคน) // เรียงลำดับจากมากไปน้อย
       .map((item, index) => ({
         ...item,
-        color: colorPalette[index % colorPalette.length]
+        color: gradientNavyPalette[index % gradientNavyPalette.length] // กำหนดสีไล่ระดับเข้ม -> อ่อน
       }));
   }, [totals, processedData]);
 
-  // ==========================================
-  // ⚡ 3. ระบบประมวลผลแนวโน้มข้อมูลย้อนหลัง 4 ปี
-  // ==========================================
+  // 3. ระบบประมวลผลแนวโน้มข้อมูลย้อนหลัง 4 ปี
   const trendChartsData = useMemo(() => {
     let filtered = staticDataForTable.filter(item => {
       const majorName = String(item["ชื่อสาขา"] || "");
@@ -551,11 +553,15 @@ function EmploymentPage() {
             <div style={{ background: "white", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.01)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>ผู้ตอบแบบสำรวจทั้งหมด</div>
-                <h2 style={{ margin: "4px 0 0 0", color: "#0f172a", fontSize: 26, fontWeight: 700 }}>{totals.respondents.toLocaleString()} <span style={{ fontSize: 14, fontWeight: 500, color: "#64748b" }}>คน</span></h2>
+                <h2 style={{ margin: "4px 0 0 0", color: "#0f172a", fontSize: 24, fontWeight: 700 }}>
+                  {totals.respondents.toLocaleString()} 
+                  <span style={{ fontSize: 14, fontWeight: 500, color: "#64748b" }}> / {totals.totalGraduates.toLocaleString()} คน</span>
+                </h2>
+                <div style={{ fontSize: 11, color: "#0284c7", fontWeight: 600, marginTop: 4 }}>
+                  (ตอบแล้ว {totals.responseRate}% จากทั้งหมด)
+                </div>
               </div>
-              <div style={{ background: "#e0f2fe", padding: 12, borderRadius: 12 }}>
-                <IdcardOutlined style={{ fontSize: 24, color: "#0284c7" }} />
-              </div>
+        
             </div>
 
             <div style={{ background: "white", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.01)" }}>
@@ -571,8 +577,6 @@ function EmploymentPage() {
 
           {/* PROGRESS CIRCLES ZONE */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 24 }}>
-            
-            {/* 1. อัตราการมีงานทำรวม (QA) */}
             <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #bae6fd", boxShadow: "0 4px 15px rgba(2, 132, 199, 0.03)" }}>
               <h4 style={{ color: "#0284c7", fontSize: 13, fontWeight: 700, margin: "0 0 4px 0" }}>อัตราการมีงานทำรวม (QA)</h4>
               <div style={{ color: "#64748b", fontSize: 11, marginBottom: 16 }}>รวมกลุ่มงานอิสระ / หักกลุ่มยกเว้น</div>
@@ -580,7 +584,6 @@ function EmploymentPage() {
               <div style={{ marginTop: 12, color: "#475569", fontSize: 12 }}>คำนวณตามสูตรประกันคุณภาพหลัก</div>
             </Card>
             
-            {/* 2. ร้อยละของผู้ตอบแบบสำรวจ */}
             <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #bbf7d0", boxShadow: "0 4px 15px rgba(16, 185, 129, 0.03)" }}>
               <h4 style={{ color: "#059669", fontSize: 13, fontWeight: 700, margin: "0 0 4px 0" }}>ร้อยละของผู้ตอบแบบสำรวจ</h4>
               <div style={{ color: "#64748b", fontSize: 11, marginBottom: 16 }}>สัดส่วนผู้ตอบเทียบกับบัณฑิตทั้งหมด</div>
@@ -592,19 +595,17 @@ function EmploymentPage() {
                 size={130} 
                 strokeWidth={9} 
               />
-              <div style={{ marginTop: 12, color: "#475569", fontSize: 12 }}>
-                ตอบแบบสำรวจ: {(totals?.respondents || 0).toLocaleString()} คน
+              <div style={{ marginTop: 12, color: "#475569", fontSize: 12, fontWeight: 600 }}>
+                ตอบแล้ว {(totals?.respondents || 0).toLocaleString()} จาก {(totals?.totalGraduates || 0).toLocaleString()} คน
               </div>
             </Card>
 
-            {/* 3. จำนวนบัณฑิตที่ได้งานทำประจำ */}
             <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #ddd6fe", boxShadow: "0 4px 15px rgba(139, 92, 246, 0.03)" }}>
               <h4 style={{ color: "#7c3aed", fontSize: 13, fontWeight: 700, margin: "0 0 4px 0" }}>จำนวนบัณฑิตที่ได้งานทำประจำ</h4>
               <div style={{ color: "#64748b", fontSize: 11, marginBottom: 16 }}>ภายใน 1 ปีหลังสำเร็จการศึกษา</div>
               <Progress type="circle" percent={totals?.respondents > 0 ? Number(((totals.employedStaff / totals.respondents) * 100).toFixed(2)) : 0} strokeColor="#8b5cf6" size={130} strokeWidth={9} />
               <div style={{ marginTop: 12, color: "#475569", fontSize: 12 }}>ยอดรวมประจำ: {(totals?.employedStaff || 0).toLocaleString()} คน</div>
             </Card>
-
           </div>
 
           {/* LOWER META STATS */}
@@ -630,7 +631,7 @@ function EmploymentPage() {
             </div>
           </div>
 
-          {/* MAIN SUMMARY BAR CHART */}
+          {/* MAIN SUMMARY BAR CHART (ปรับแต่งการไล่สีแล้ว) */}
           <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
             <h3 style={{ marginBottom: 20, fontSize: 16, fontWeight: 600, color: "#1e293b" }}>📊 แผนภูมิแสดงสัดส่วนผู้สำเร็จการศึกษาจำแนกตามประเภทหน่วยงาน</h3>
             <div style={{ height: 400 }}>
@@ -642,7 +643,7 @@ function EmploymentPage() {
                     <XAxis type="number" axisLine={false} tickLine={false} style={{ fontSize: 11, fill: "#64748b" }} />
                     <Tooltip cursor={{ fill: '#f8fafc' }} formatter={(value) => [`${value.toLocaleString()} คน`, 'จำนวนบัณฑิต']} />
                     <Bar dataKey="จำนวนคน" radius={[0, 6, 6, 0]} barSize={24}>
-                      <LabelList dataKey="จำนวนคน" position="right" dx={8} style={{ fill: '#475569', fontSize: 12, fontWeight: 'bold' }} formatter={(value) => `${value.toLocaleString()} คน`} />
+                      <LabelList dataKey="จำนวนคน" position="right" dx={8} style={{ fill: '#334155', fontSize: 12, fontWeight: 'bold' }} formatter={(value) => `${value.toLocaleString()} คน`} />
                       {dynamicChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
@@ -659,8 +660,6 @@ function EmploymentPage() {
 
           {/* TWO CHARTS ZONE */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
-            
-            {/* กราฟฝั่งซ้าย: ทำงานในหน่วยงานหรือองค์กรใด */}
             <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.03)", height: 520, display: "flex", flexDirection: "column" }}>
               <h3 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 600, color: "#1e293b" }}>ทำงานในหน่วยงานหรือองค์กรใด</h3>
               <div style={{ color: "#64748b", fontSize: 12, marginBottom: 20 }}>เปรียบเทียบสัดส่วนตามประเภทหน่วยงานจริง</div>
@@ -698,7 +697,6 @@ function EmploymentPage() {
               </div>
             </div>
 
-            {/* กราฟฝั่งขวา: ทำงานตรงสาขาที่จบ และทำงานไม่ตรงสาขาที่จบ */}
             <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.03)", height: 520, display: "flex", flexDirection: "column" }}>
               <h3 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 600, color: "#1e293b" }}>ทำงานตรงสาขาที่จบ และทำงานไม่ตรงสาขาที่จบ</h3>
               <div style={{ color: "#64748b", fontSize: 12, marginBottom: 20 }}>ความสอดคล้องระหว่างวิชาชีพและตลาดงาน</div>
@@ -729,7 +727,6 @@ function EmploymentPage() {
                 </ResponsiveContainer>
               </div>
             </div>
-
           </div>
 
           {/* TREND SECTION HEADER */}
@@ -771,7 +768,7 @@ function EmploymentPage() {
             </div>
           </div>
 
-          {/* 📊 4. โซนแสดงกราฟแนวโน้มย้อนหลัง 9 กราฟ */}
+          {/* GRID OF 9 TREND CHARTS */}
           {(() => {
             const yearlyColors = ["#2f3559", "#7272b0", "#b7a8bd", "#dcd5e5"];
             const currentRangeText = `ย้อนหลัง 4 ปี`;
@@ -780,7 +777,7 @@ function EmploymentPage() {
               <div style={{ marginBottom: 32 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
                   
-                  {/* 📊 กราฟที่ 1: อัตราภาวะการมีงานทำย้อนหลัง */}
+                  {/* กราฟที่ 1: อัตราภาวะการมีงานทำย้อนหลัง */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -816,7 +813,7 @@ function EmploymentPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 2: จำนวนบัณฑิตระดับปริญญาตรีที่ตอบแบบสำรวจ */}
+                  {/* กราฟที่ 2: จำนวนบัณฑิตระดับปริญญาตรีที่ตอบแบบสำรวจ */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "12px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -852,7 +849,7 @@ function EmploymentPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 3: จำนวนบัณฑิตที่ได้งานทำ (ไม่นับธุรกิจส่วนตัว) */}
+                  {/* กราฟที่ 3: จำนวนบัณฑิตที่ได้งานทำ (ไม่นับธุรกิจส่วนตัว) */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "12px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -888,7 +885,7 @@ function EmploymentPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 4: อาชีพอิสระ */}
+                  {/* กราฟที่ 4: อาชีพอิสระ */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "12px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -900,15 +897,9 @@ function EmploymentPage() {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
-                            <XAxis 
-                              dataKey="year" 
-                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                              axisLine={false} 
-                              tickLine={false} 
-                            />                  
+                            <XAxis dataKey="year" tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value.toLocaleString()} คน`, 'ธุรกิจส่วนตัว/อิสระ']} />
+                            <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value.toLocaleString()} คน`, 'อาชีพอิสระ']} />
                             <Bar dataKey="selfEmployed" radius={[6, 6, 0, 0]} barSize={24}>
                               {trendChartsData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={yearlyColors[index % yearlyColors.length]} />
@@ -924,11 +915,11 @@ function EmploymentPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 5: มีงานทำเดิมก่อนเข้าศึกษา */}
+                  {/* กราฟที่ 5: มีงานทำเดิมอยู่แล้ว */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "12px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
-                        จำนวนผู้สำเร็จการศึกษาระดับปริญญาตรีที่มีงานทำเดิมก่อนเข้าศึกษา {currentRangeText}
+                        จำนวนบัณฑิตระดับปริญญาตรีที่มีงานทำเดิมอยู่แล้ว {currentRangeText}
                       </h4>
                     </div>
                     <div style={{ height: 190, width: "100%" }}>
@@ -936,15 +927,9 @@ function EmploymentPage() {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
-                            <XAxis 
-                              dataKey="year" 
-                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                              axisLine={false} 
-                              tickLine={false} 
-                            />
+                            <XAxis dataKey="year" tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value.toLocaleString()} คน`, 'มีงานทำเดิมก่อนเรียน']} />
+                            <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value.toLocaleString()} คน`, 'มีงานทำเดิม']} />
                             <Bar dataKey="hasJobBefore" radius={[6, 6, 0, 0]} barSize={24}>
                               {trendChartsData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={yearlyColors[index % yearlyColors.length]} />
@@ -960,11 +945,11 @@ function EmploymentPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 6: ศึกษาต่อ */}
+                  {/* กราฟที่ 6: ศึกษาต่อ */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "12px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
-                        จำนวนบัณฑิตระดับปริญญาตรีที่ศึกษาต่อระดับบัณฑิตศึกษา {currentRangeText}
+                        จำนวนบัณฑิตระดับปริญญาตรีที่ศึกษาต่อ {currentRangeText}
                       </h4>
                     </div>
                     <div style={{ height: 190, width: "100%" }}>
@@ -972,13 +957,7 @@ function EmploymentPage() {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
-                            <XAxis 
-                              dataKey="year" 
-                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                              axisLine={false} 
-                              tickLine={false} 
-                            />
+                            <XAxis dataKey="year" tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                             <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value.toLocaleString()} คน`, 'ศึกษาต่อ']} />
                             <Bar dataKey="studyMore" radius={[6, 6, 0, 0]} barSize={24}>
@@ -996,11 +975,11 @@ function EmploymentPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 7: อุปสมบท */}
+                  {/* กราฟที่ 7: อุปสมบท / บวชเรียน */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "12px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
-                        จำนวนบัณฑิตระดับปริญญาตรีที่อุปสมบท {currentRangeText}
+                        จำนวนบัณฑิตระดับปริญญาตรีที่อุปสมบท/บวชเรียน {currentRangeText}
                       </h4>
                     </div>
                     <div style={{ height: 190, width: "100%" }}>
@@ -1008,15 +987,9 @@ function EmploymentPage() {
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={trendChartsData} margin={{ top: 15, right: 5, left: -25, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f8fafc" />
-                            <XAxis 
-                              dataKey="year" 
-                              tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} 
-                              tick={{ fontSize: 11, fill: "#94a3b8" }} 
-                              axisLine={false} 
-                              tickLine={false} 
-                            />
+                            <XAxis dataKey="year" tickFormatter={(v) => `ปี ${v.toString().replace("ปีการศึกษา ", "").trim()}`} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                            <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value.toLocaleString()} คน`, 'อุปสมบท']} />
+                            <Tooltip contentStyle={{ background: "#0f172a", borderRadius: 8, border: "none", color: "#fff", fontSize: 12 }} formatter={(value) => [`${value.toLocaleString()} คน`, 'อุปสมบท/บวชเรียน']} />
                             <Bar dataKey="ordain" radius={[6, 6, 0, 0]} barSize={24}>
                               {trendChartsData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={yearlyColors[index % yearlyColors.length]} />
@@ -1032,7 +1005,7 @@ function EmploymentPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 8: เกณฑ์ทหาร */}
+                  {/* กราฟที่ 8: เกณฑ์ทหาร */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "12px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
@@ -1068,7 +1041,7 @@ function EmploymentPage() {
                     </div>
                   </Card>
 
-                  {/* 📊 กราฟที่ 9: มีกิจการของตนเองที่มีรายได้ประจำอยู่แล้ว */}
+                  {/* กราฟที่ 9: มีกิจการของตนเองที่มีรายได้ประจำอยู่แล้ว */}
                   <Card bodyStyle={{ padding: "20px" }} style={{ borderRadius: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", border: "1px solid #f1f5f9", background: "#ffffff" }}>
                     <div style={{ textAlign: "center", marginBottom: 16, minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <h4 style={{ margin: 0, fontSize: "11px", fontWeight: "600", color: "#334155", lineHeight: "1.4" }}>
