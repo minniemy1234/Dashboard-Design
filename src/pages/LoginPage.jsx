@@ -19,7 +19,7 @@ const LoginPage = () => {
     localStorage.setItem("picture", userData.picture || "");
     localStorage.setItem("role", userData.role);
 
-    // ⚡ แจ้ง Event ให้ Component อื่นๆ (เช่น Navbar, Sidebar) รู้ว่ามีการ Login
+    // แจ้ง Event ให้ Component อื่นๆ รู้ว่ามีการ Login
     window.dispatchEvent(new Event("storage"));
 
     message.success(`ยินดีต้อนรับคุณ ${userData.name || userData.username}!`);
@@ -31,7 +31,7 @@ const LoginPage = () => {
       const decoded = jwtDecode(credentialResponse.credential);
       const userEmail = decoded.email ? decoded.email.toLowerCase() : "";
 
-      // 🔍 เช็กรายชื่อแอดมินบน Firebase
+      // เช็กรายชื่อแอดมินบน Firebase
       let adminList = ["naramon.si@ku.th"];
       try {
         const docSnap = await getDoc(doc(db, "system_config", "admins"));
@@ -64,7 +64,7 @@ const LoginPage = () => {
   const handleFinish = (values) => {
     setLoading(true);
     setTimeout(() => {
-      // ⚠️ Mock-up Auth สำหรับ Dev Phase
+      // Mock-up Auth สำหรับ Dev Phase
       if (values.username === "admin" && values.password === "123456") {
         saveSessionAndRedirect({
           username: values.username,
