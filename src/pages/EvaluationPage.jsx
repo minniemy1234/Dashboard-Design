@@ -461,7 +461,7 @@ function EvaluationPage() {
               <div>
                 <h3 style={{ color: "#ffffff", fontSize: "20px", fontWeight: "600", margin: 0, letterSpacing: "-0.5px", display: "flex", alignItems: "center", gap: 10 }}>
                   <HistoryOutlined style={{ color: "#38bdf8" }} />
-                  วิเคราะห์แนวโน้มผลการประเมินคุณภาพย้อนหลัง 4 ปี (TQF)
+                  วิเคราะห์แนวโน้มผลการประเมินคุณภาพย้อนหลัง
                 </h3>
                 <p style={{ color: "#94a3b8", fontSize: "13px", margin: "6px 0 0 0" }}>
                   เปรียบเทียบสถิติและผลประเมินย้อนหลัง 4 ปีการศึกษาเพื่อวิเคราะห์คุณภาพอย่างต่อเนื่อง
