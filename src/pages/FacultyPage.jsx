@@ -434,7 +434,7 @@ function FacultyPage() {
               
               <Col xs={24} md={8}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13, color: "#334155" }}>สาขาวิชา (เลือกได้หลายรายการ)</span>
+                  <span style={{ fontWeight: 600, fontSize: 13, color: "#334155" }}>สาขาวิชา/กลุ่มวิชา</span>
                   <Button 
                     type="link" 
                     size="small" 
