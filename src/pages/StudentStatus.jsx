@@ -174,7 +174,7 @@ function StudentStatus() {
     const studying = 473; 
     return [
       { name: "กำลังศึกษา", value: studying, color: "#2ba859" },
-      { name: "ออกกลางคัน", value: totalOut, color: "#ef4444" },
+      { name: "นิสิตพ้นสภาพ/ลาออก", value: totalOut, color: "#ef4444" },
       { name: "สำเร็จการศึกษา", value: 0, color: "#10b981" }
     ].filter(item => item.value > 0);
   }, [totalDropout, totalDismissed, totalExpelled]);
