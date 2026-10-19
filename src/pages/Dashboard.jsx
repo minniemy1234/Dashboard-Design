@@ -451,7 +451,7 @@ function Dashboard() {
               <Col xs={24} lg={10}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontWeight: "700", color: "#334155", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}>
-                    <CalendarOutlined style={{ color: "#0284c7" }} /> ปีการศึกษาที่ต้องการกรอกข้อมูล
+                    <CalendarOutlined style={{ color: "#0284c7" }} /> ปีการศึกษา
                   </span>
                   <Button 
                     type="link" 
@@ -466,7 +466,7 @@ function Dashboard() {
                   mode="multiple"
                   allowClear
                   style={{ width: "100%" }}
-                  placeholder="เลือกปีการศึกษา (ค่าเริ่มต้น: แสดงทั้งหมด)"
+                  placeholder="เลือกปีการศึกษา "
                   value={selectedYears}
                   onChange={(val) => setSelectedYears(val)}
                   maxTagCount="responsive"
@@ -497,7 +497,7 @@ function Dashboard() {
                   mode="multiple"
                   allowClear
                   style={{ width: "100%" }}
-                  placeholder="เลือกสาขาวิชา (ค่าเริ่มต้น: แสดงทุกสาขา)"
+                  placeholder="เลือกสาขาวิชา"
                   value={selectedMajors}
                   onChange={(val) => setSelectedMajors(val)}
                   maxTagCount="responsive"
@@ -541,7 +541,7 @@ function Dashboard() {
                     boxShadow: "0 4px 12px rgba(2, 132, 199, 0.25)"
                   }}
                 >
-                  ประมวลผลข้อมูล
+                 ประมวลผลข้อมูล
                 </Button>
               </Col>
 
