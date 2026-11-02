@@ -21,6 +21,7 @@ import CoursePage from "./pages/CoursePage";
 import AdminManagementPage from "./pages/AdminManagementPage";
 import ResearchPage from "./pages/ResearchPage";
 import FinancePage from "./pages/FinancePage";
+import StudentSatisfactionPage from "./pages/StudentSatisfactionPage";
 
 const GOOGLE_CLIENT_ID = "279564406031-jmit17s4jtcvrnbdolg8glqhdp9divj5.apps.googleusercontent.com";
 
@@ -64,6 +65,7 @@ function App() {
             <Route path="/courses" element={<CoursePage />} />
             <Route path="/research" element={<ResearchPage />} />
             <Route path="/finance" element={<FinancePage />} />
+            <Route path="/student-satisfaction" element={<StudentSatisfactionPage />} />
           </Route>
 
           {/* ล็อกเฉพาะ Admin เข้าได้ */}
