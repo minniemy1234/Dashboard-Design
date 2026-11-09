@@ -32,8 +32,14 @@ const { Header, Content } = Layout;
 // รายการสาขาวิชาเพิ่มเติม
 const EXTRA_MAJORS = [
   "วท.ม.วิทยาศาสตร์และเทคโนโลยีผลิตภัณฑ์ธรรมชาติ",
-  "วท.ม.เทคโนโลยีเคมีประยุกต์",
-  "วท.ม.ปัญญาประดิษฐ์และเทคโนโลยีดิจิทัล"
+  "วท.ม.เทคโนโลยีเคมีประยุกต์"
+];
+
+// ❌ รายการสาขาวิชาที่ต้องการตัดออกจากฟิลเตอร์และกราฟ
+const EXCLUDED_MAJORS = [
+  "เทคโนโลยีสารสนเทศ",
+  "เทคโนโลยีสารสนเทศภาคพิเศษ",
+  "เคมี"
 ];
 
 function Dashboard() {
@@ -107,12 +113,25 @@ function Dashboard() {
     return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
   };
 
+  // 🔹 ฟังก์ชั่นทำความสะอาดชื่อสาขา
   const cleanMajorName = (majorStr) => {
     if (!majorStr) return "";
     let name = String(majorStr).replace(/\n/g, ' ').trim();
+    
     if (name.startsWith("สาขาวิชา")) name = name.replace("สาขาวิชา", "").trim();
     else if (name.startsWith("สาขา")) name = name.replace("สาขา", "").trim();
     else if (name.startsWith("หลักสูตร")) name = name.replace("หลักสูตร", "").trim();
+
+    name = name.replace(/\(ภาคปกติ\)/g, "").replace(/ภาคปกติ/g, "").trim();
+
+    if (name.includes("วิทยาการคอมพิวเตอร์")) {
+      name = "วิทยาการคอมพิวเตอร์";
+    }
+
+    if (name.includes("วิทยาการและเทคโนโลยีดิจิทัล")) {
+      name = "วิทยาการและเทคโนโลยีดิจิทัล";
+    }
+
     return name;
   };
 
@@ -138,7 +157,6 @@ function Dashboard() {
     return dashboardData["student_retain"] || dashboardData["นิสิตคงอยู่"] || dashboardData["ข้อมูลนิสิตคงอยู่"] || dashboardData["จำนวนนิสิตคงอยู่"] || dashboardData["student_retain_data"] || [];
   }, [dashboardData]);
 
-  // ดึงข้อมูลผู้สำเร็จการศึกษา
   const graduatesList = useMemo(() => {
     if (!dashboardData || Object.keys(dashboardData).length === 0) return [];
     return dashboardData["ผู้สำเร็จการศึกษา"] || dashboardData["สำเร็จการศึกษา"] || dashboardData["graduates"] || dashboardData["student_graduated"] || [];
@@ -173,8 +191,10 @@ function Dashboard() {
     const rawMajors = retain.map(item => cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]));
     const combined = [...new Set([...rawMajors, ...EXTRA_MAJORS])].filter(Boolean);
 
-    const bachelorMajors = combined.filter(m => !isMasterOrXMajor(m)).sort();
-    const masterMajors = combined.filter(m => isMasterOrXMajor(m)).sort();
+    const filteredCombined = combined.filter(m => !EXCLUDED_MAJORS.includes(m));
+
+    const bachelorMajors = filteredCombined.filter(m => !isMasterOrXMajor(m)).sort();
+    const masterMajors = filteredCombined.filter(m => isMasterOrXMajor(m)).sort();
 
     return [...bachelorMajors, ...masterMajors];
   }, [retain]);
@@ -191,10 +211,18 @@ function Dashboard() {
     setAppliedFilters({ years: selectedYears, majors: selectedMajors });
   };
 
-  // ข้อมูลพื้นฐานสำหรับสร้างกราฟ
   const rawGraphData = useMemo(() => {
-    if (retain.length === 0 || !graphEntryYear || !graphSurveyYear) return [];
+    if (retain.length === 0) return [];
+
     const grouped = {};
+
+    majorsOptions.forEach(majorName => {
+      const key = cleanString(majorName);
+      if (key) {
+        grouped[key] = { name: majorName, earlyTerm: 0, lateTerm: 0 };
+      }
+    });
+
     retain.forEach(item => {
       const itemEntryYear = extractYear(item["ปีการศึกษาที่รับเข้า"] || item["ปีการศึกษา"]);
       const itemSurveyYear = extractYear(item["ปีที่สำรวจ"]);
@@ -202,7 +230,8 @@ function Dashboard() {
       if (itemEntryYear !== graphEntryYear || itemSurveyYear !== graphSurveyYear) return;
 
       const rawName = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-      if (!rawName) return;
+      if (!rawName || EXCLUDED_MAJORS.includes(rawName)) return;
+
       const majorKey = cleanString(rawName);
       const term = String(item["ภาคเรียน"] || item["ภาคการศึกษา"] || "").trim();
       const amt = Number(item["จำนวน"] || item["รวม"] || 0);
@@ -216,22 +245,21 @@ function Dashboard() {
     });
 
     return Object.values(grouped);
-  }, [retain, graphEntryYear, graphSurveyYear]);
+  }, [retain, graphEntryYear, graphSurveyYear, majorsOptions]);
 
-  // แยกชุดข้อมูลกราฟ ป.ตรี
   const bachelorGraphData = useMemo(() => {
     return rawGraphData
-      .filter(item => !isMasterOrXMajor(item.name))
+      .filter(item => !isMasterOrXMajor(item.name) && (item.earlyTerm + item.lateTerm) > 0)
       .sort((a, b) => (b.earlyTerm + b.lateTerm) - (a.earlyTerm + a.lateTerm));
   }, [rawGraphData]);
 
-  // แยกชุดข้อมูลกราฟ ป.โท
   const masterGraphData = useMemo(() => {
     return rawGraphData
-      .filter(item => isMasterOrXMajor(item.name))
+      .filter(item => isMasterOrXMajor(item.name) && (item.earlyTerm + item.lateTerm) > 0)
       .sort((a, b) => (b.earlyTerm + b.lateTerm) - (a.earlyTerm + a.lateTerm));
   }, [rawGraphData]);
 
+  // 🔹 คำนวณสรุปข้อมูล KPI (ปรับคำนวณผู้สำเร็จการศึกษาย้อนหลัง 4 ปี)
   const studentBreakdown = useMemo(() => {
     let admitted = 0;
     let retained = 0;
@@ -239,7 +267,7 @@ function Dashboard() {
     let bachelorRetained = 0;
     let masterAdmitted = 0;
     let masterRetained = 0;
-    let lecturers = 99; // กำหนดค่าเริ่มต้นบุคลากรสายผู้สอนเป็น 99 ท่าน
+    let lecturers = 99;
     let graduates = 0;
 
     if (dashboardData && Object.keys(dashboardData).length > 0) {
@@ -253,8 +281,11 @@ function Dashboard() {
       const isAllYearsSelected = appliedFilters.years.length === 0 || appliedFilters.years.length === yearsOptions.length;
       const isAllMajorsSelected = appliedFilters.majors.length === 0 || appliedFilters.majors.length === majorsOptions.length;
 
+      // คำนวณนิสิตคงอยู่
       retain.forEach((item) => {
         const retMajorClean = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
+        if (EXCLUDED_MAJORS.includes(retMajorClean)) return;
+
         const retYear = extractYear(item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"]);
         const retTerm = String(item["ภาคเรียน"] || item["ภาคการศึกษา"] || "").trim();
         const amt = Number(item["จำนวน"] || item["รวม"] || 0);
@@ -279,45 +310,45 @@ function Dashboard() {
         }
       });
 
-      // ดึงและคำนวณจำนวนผู้สำเร็จการศึกษา
-      if (Array.isArray(graduatesList) && graduatesList.length > 0) {
-        graduatesList.forEach((item) => {
-          const gradMajorClean = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-          const gradYear = extractYear(item["ปีการศึกษา"] || item["ปีสำเร็จการศึกษา"] || item["ปีที่สำเร็จ"]);
-          const amt = Number(item["จำนวน"] || item["จำนวนนิสิต"] || item["รวม"] || 0);
+      // 🔹 ดึงข้อมูลปีการศึกษา 4 ปีล่าสุดสำหรับผู้สำเร็จการศึกษา
+      const sortedYears = [...yearsOptions].sort((a, b) => Number(b) - Number(a));
+      const last4Years = sortedYears.slice(0, 4);
 
-          const yearMatch = isAllYearsSelected || appliedFilters.years.includes(gradYear);
-          const majorMatch = isAllMajorsSelected || appliedFilters.majors.includes(gradMajorClean);
+      // คำนวณผู้สำเร็จการศึกษา (ย้อนหลัง 4 ปี)
+      const gradDataSource = (Array.isArray(graduatesList) && graduatesList.length > 0) ? graduatesList : retain;
 
-          if (majorMatch && yearMatch) {
-            graduates += amt;
-          }
-        });
-      }
+      gradDataSource.forEach((item) => {
+        const gradMajorClean = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
+        if (EXCLUDED_MAJORS.includes(gradMajorClean)) return;
 
+        const gradYear = extractYear(item["ปีการศึกษา"] || item["ปีสำเร็จการศึกษา"] || item["ปีที่สำเร็จ"] || item["ปีการศึกษาที่รับเข้า"] || item["ปีที่สำรวจ"]);
+        const amt = Number(item["จำนวน"] || item["จำนวนนิสิต"] || item["รวม"] || 0);
+
+        // เช็กปีการศึกษาย้อนหลัง 4 ปี
+        const in4Years = last4Years.length > 0 ? last4Years.includes(gradYear) : true;
+        const yearMatch = isAllYearsSelected ? in4Years : (appliedFilters.years.includes(gradYear) && in4Years);
+        const majorMatch = isAllMajorsSelected || appliedFilters.majors.includes(gradMajorClean);
+
+        if (majorMatch && yearMatch) {
+          graduates += amt;
+        }
+      });
+
+      // คำนวณบุคลากร
       if (Array.isArray(teacher) && teacher.length > 0) {
-        const stripProgramType = (str) => {
-          if (!str) return "";
-          return str
-            .replace(/\(ภาคปกติ\)/g, "")
-            .replace(/\(ภาคพิเศษ\)/g, "")
-            .replace(/ภาคปกติ/g, "")
-            .replace(/ภาคพิเศษ/g, "")
-            .trim();
-        };
-
         const selectedBaseMajors = new Set(
-          appliedFilters.majors.map(m => stripProgramType(m))
+          appliedFilters.majors.map(m => cleanMajorName(m))
         );
 
         const validTeachers = teacher.filter(item => {
           const rawTeacherMajor = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-          const cleanTeacherMajor = stripProgramType(rawTeacherMajor);
+
+          if (EXCLUDED_MAJORS.includes(rawTeacherMajor)) return false;
 
           const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "";
           const cleanName = String(name).trim();
 
-          const majorMatch = isAllMajorsSelected || selectedBaseMajors.has(cleanTeacherMajor);
+          const majorMatch = isAllMajorsSelected || selectedBaseMajors.has(rawTeacherMajor);
           if (!majorMatch) return false;
 
           return cleanName !== "" && cleanName !== "-" && !cleanName.includes("รวม") && !cleanName.includes("จำนวน");
@@ -372,22 +403,19 @@ function Dashboard() {
 
   const isDataEmpty = !dashboardData || Object.keys(dashboardData).length === 0;
 
-  // ป้องกัน Error สำหรับ Custom Label ใน Stacked Bar
-  const renderStackedTotalLabel = (props) => {
-    const { x, y, width, height, payload } = props;
-    if (!payload) return null;
-    const total = (payload.earlyTerm || 0) + (payload.lateTerm || 0);
-    if (!total) return null;
+  const renderBarValueLabel = (props) => {
+    const { x, y, width, height, value } = props;
+    if (value === undefined || value === null || value === 0) return null;
     return (
       <text
-        x={(x || 0) + (width || 0) + 8}
+        x={(x || 0) + (width || 0) + 6}
         y={(y || 0) + (height || 0) / 2 + 4}
         fill="#334155"
         fontSize={12}
-        fontWeight="bold"
+        fontWeight="600"
         textAnchor="start"
       >
-        {total}
+        {value.toLocaleString()}
       </text>
     );
   };
@@ -524,7 +552,7 @@ function Dashboard() {
                 </Select>
               </Col>
 
-              {/* ปุ่มประมวลผล */}
+              
               <Col xs={24} lg={4}>
                 <Button 
                   type="primary" 
@@ -541,7 +569,7 @@ function Dashboard() {
                     boxShadow: "0 4px 12px rgba(2, 132, 199, 0.25)"
                   }}
                 >
-                 ประมวลผลข้อมูล
+                 ประมวลผล
                 </Button>
               </Col>
 
@@ -583,7 +611,7 @@ function Dashboard() {
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline" }}>
                         <span style={{ fontSize: "32px", fontWeight: "800", color: "#ffffff", lineHeight: "1" }}>
-                          {(appliedFilters.majors.length > 0 ? appliedFilters.majors.length : majorsOptions.length).toLocaleString()}
+                          {majorsOptions.length.toLocaleString()}
                         </span>
                         <span style={{ fontSize: "14px", fontWeight: "500", color: "#e0f2fe", marginLeft: "8px" }}>หลักสูตร</span>
                       </div>
@@ -619,7 +647,7 @@ function Dashboard() {
                     </div>
                   </Col>
 
-                  {/* KPI 3: ผู้สำเร็จการศึกษา */}
+                  {/* 🔹 KPI 3: ผู้สำเร็จการศึกษา (ปรับปรุงแสดงย้อนหลัง 4 ปี) */}
                   <Col xs={24} sm={12} lg={6}>
                     <div style={{ 
                       background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", 
@@ -634,8 +662,8 @@ function Dashboard() {
                       justifyContent: "space-between"
                     }}>
                       <div style={{ minHeight: "44px" }}>
-                        <div style={{ color: "#ddd6fe", fontSize: "12px", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase" }}>GRADUATES (5 YRS)</div>
-                        <h3 style={{ margin: "2px 0 0 0", fontSize: "15px", color: "#f5f3ff", fontWeight: "500", lineHeight: "1.3" }}>ผู้สำเร็จการศึกษา</h3>
+                        <div style={{ color: "#ddd6fe", fontSize: "12px", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase" }}>GRADUATES (4 YRS)</div>
+                        <h3 style={{ margin: "2px 0 0 0", fontSize: "15px", color: "#f5f3ff", fontWeight: "500", lineHeight: "1.3" }}>ผู้สำเร็จการศึกษา (ย้อนหลัง 4 ปี)</h3>
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline" }}>
                         <span style={{ fontSize: "32px", fontWeight: "800", color: "#ffffff", lineHeight: "1" }}>
@@ -677,114 +705,170 @@ function Dashboard() {
                 </Row>
               </div>
 
-              {/* 📊 GRAPH SECTION PANEL (STACKED BAR CHART) */}
-              {(bachelorGraphData.length > 0 || masterGraphData.length > 0) && (
-                <div style={{ marginTop: "32px" }}>
-                  <Card 
-                    style={{ borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
-                    title={
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", padding: "8px 0" }}>
-                        <div>
-                          <span style={{ fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>
-                            สถิติจำนวนนิสิตเปรียบเทียบภาคต้นและภาคปลาย
-                          </span>
-                          <p style={{ margin: 0, fontSize: "12px", color: "#64748b", fontWeight: "normal" }}>
-                            จำแนกตามรายสาขาวิชา ประจำปีเข้าศึกษา {graphEntryYear} (สำรวจปี {graphSurveyYear})
-                          </p>
-                        </div>
-                        <Space>
-                          <span style={{ fontSize: "13px", fontWeight: "600", color: "#334155" }}>ปีที่รับเข้า:</span>
-                          <Select 
-                            value={graphEntryYear} 
-                            onChange={setGraphEntryYear} 
-                            size="small" 
-                            style={{ width: 100 }}
-                          >
-                            {entryYears.map(y => <Select.Option key={y} value={y}>{y}</Select.Option>)}
-                          </Select>
-                          <span style={{ fontSize: "13px", fontWeight: "600", color: "#334155", marginLeft: "8px" }}>ปีที่สำรวจ:</span>
-                          <Select 
-                            value={graphSurveyYear} 
-                            onChange={setGraphSurveyYear} 
-                            size="small" 
-                            style={{ width: 100 }}
-                          >
-                            {surveyYears.map(y => <Select.Option key={y} value={y}>{y}</Select.Option>)}
-                          </Select>
-                        </Space>
-                      </div>
-                    }
-                  >
-                    {/* กราฟระดับปริญญาตรี */}
-                    {bachelorGraphData.length > 0 && (
-                      <div style={{ marginBottom: "32px" }}>
-                        <h4 style={{ color: "#0369a1", fontWeight: "700", marginBottom: "16px" }}>
-                          🎓 ระดับปริญญาตรี
-                        </h4>
-                        <div style={{ width: "100%", height: Math.max(300, bachelorGraphData.length * 45) }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={bachelorGraphData} layout="vertical" margin={{ top: 5, right: 50, left: 20, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                              <XAxis type="number" />
-                              <YAxis dataKey="name" type="category" width={220} tick={{ fontSize: 12, fill: "#475569" }} />
-                              <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }} />
-                              <Legend />
-                              <Bar 
-                                dataKey="earlyTerm" 
-                                name="ภาคต้น" 
-                                stackId="a" 
-                                fill="#0284c7" 
-                              />
-                              <Bar 
-                                dataKey="lateTerm" 
-                                name="ภาคปลาย" 
-                                stackId="a" 
-                                fill="#059669" 
-                                radius={[0, 4, 4, 0]} 
-                                label={renderStackedTotalLabel} 
-                              />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* กราฟระดับปริญญาโท */}
-                    {masterGraphData.length > 0 && (
+              {/* 📊 GRAPH SECTION PANEL (GROUPED SIDE-BY-SIDE BAR CHART) */}
+              <div style={{ marginTop: "32px" }}>
+                <Card 
+                  style={{ borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
+                  title={
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", padding: "8px 0" }}>
                       <div>
-                        <h4 style={{ color: "#7c3aed", fontWeight: "700", marginBottom: "16px" }}>
-                          🎓 ระดับปริญญาโท
-                        </h4>
-                        <div style={{ width: "100%", height: Math.max(200, masterGraphData.length * 45) }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={masterGraphData} layout="vertical" margin={{ top: 5, right: 50, left: 20, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                              <XAxis type="number" />
-                              <YAxis dataKey="name" type="category" width={220} tick={{ fontSize: 12, fill: "#475569" }} />
-                              <Tooltip contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0" }} />
-                              <Legend />
-                              <Bar 
-                                dataKey="earlyTerm" 
-                                name="ภาคต้น" 
-                                stackId="a" 
-                                fill="#8b5cf6" 
-                              />
-                              <Bar 
-                                dataKey="lateTerm" 
-                                name="ภาคปลาย" 
-                                stackId="a" 
-                                fill="#10b981" 
-                                radius={[0, 4, 4, 0]} 
-                                label={renderStackedTotalLabel} 
-                              />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
+                        <span style={{ fontSize: "16px", fontWeight: "700", color: "#0f172a" }}>
+                          แผนภูมิเปรียบเทียบจำนวนนิสิตภาคต้นและภาคปลาย
+                        </span>
+                        <p style={{ margin: 0, fontSize: "12px", color: "#64748b", fontWeight: "normal" }}>
+                          จำแนกตามรายสาขาวิชา 
+                        </p>
                       </div>
+                      <Space>
+                        <span style={{ fontSize: "13px", fontWeight: "600", color: "#334155" }}>ปีที่รับเข้า:</span>
+                        <Select 
+                          value={graphEntryYear} 
+                          onChange={setGraphEntryYear} 
+                          size="small" 
+                          style={{ width: 100 }}
+                        >
+                          {entryYears.map(y => <Select.Option key={y} value={y}>{y}</Select.Option>)}
+                        </Select>
+                        <span style={{ fontSize: "13px", fontWeight: "600", color: "#334155", marginLeft: "8px" }}>ปีที่สำรวจ:</span>
+                        <Select 
+                          value={graphSurveyYear} 
+                          onChange={setGraphSurveyYear} 
+                          size="small" 
+                          style={{ width: 100 }}
+                        >
+                          {surveyYears.map(y => <Select.Option key={y} value={y}>{y}</Select.Option>)}
+                        </Select>
+                      </Space>
+                    </div>
+                  }
+                >
+                  {/* 🎓 กราฟระดับปริญญาตรี */}
+                  <div style={{ marginBottom: "36px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>
+                      <span style={{ display: "inline-block", width: "4px", height: "16px", backgroundColor: "#0ea5e9", borderRadius: "2px" }}></span>
+                      <h4 style={{ color: "#0f172a", fontWeight: "700", margin: 0, fontSize: "15px" }}>
+                        🎓 ระดับปริญญาตรี
+                      </h4>
+                    </div>
+
+                    {bachelorGraphData.length > 0 ? (
+                      <div style={{ width: "100%", height: Math.max(300, bachelorGraphData.length * 75) }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart 
+                            data={bachelorGraphData} 
+                            layout="vertical" 
+                            margin={{ top: 10, right: 65, left: 20, bottom: 10 }}
+                            barGap={6}
+                            barCategoryGap="25%"
+                          >
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                            <YAxis 
+                              dataKey="name" 
+                              type="category" 
+                              width={260} 
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 13, fill: "#334155", fontWeight: 500 }}
+                            />
+                            <Tooltip 
+                              cursor={{ fill: "rgba(241, 245, 249, 0.6)" }}
+                              contentStyle={{ 
+                                borderRadius: "12px", 
+                                border: "1px solid #e2e8f0", 
+                                boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                                padding: "12px 16px"
+                              }} 
+                            />
+                            <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: "12px" }} />
+                            <Bar 
+                              dataKey="earlyTerm" 
+                              name="ภาคต้น" 
+                              fill="#0ea5e9" 
+                              radius={[0, 4, 4, 0]}
+                              barSize={14}
+                              label={renderBarValueLabel} 
+                            />
+                            <Bar 
+                              dataKey="lateTerm" 
+                              name="ภาคปลาย" 
+                              fill="#10b981" 
+                              radius={[0, 4, 4, 0]} 
+                              barSize={14}
+                              label={renderBarValueLabel} 
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูลระดับปริญญาตรีสำหรับปีการศึกษาที่เลือก" />
                     )}
-                  </Card>
-                </div>
-              )}
+                  </div>
+
+                  {/* 🎓 กราฟระดับปริญญาโท */}
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>
+                      <span style={{ display: "inline-block", width: "4px", height: "16px", backgroundColor: "#8b5cf6", borderRadius: "2px" }}></span>
+                      <h4 style={{ color: "#0f172a", fontWeight: "700", margin: 0, fontSize: "15px" }}>
+                        🎓 ระดับปริญญาโท
+                      </h4>
+                    </div>
+
+                    {masterGraphData.length > 0 ? (
+                      <div style={{ width: "100%", height: Math.max(200, masterGraphData.length * 75) }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart 
+                            data={masterGraphData} 
+                            layout="vertical" 
+                            margin={{ top: 10, right: 65, left: 20, bottom: 10 }}
+                            barGap={6}
+                            barCategoryGap="25%"
+                          >
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                            <YAxis 
+                              dataKey="name" 
+                              type="category" 
+                              width={260} 
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 13, fill: "#334155", fontWeight: 500 }}
+                            />
+                            <Tooltip 
+                              cursor={{ fill: "rgba(241, 245, 249, 0.6)" }}
+                              contentStyle={{ 
+                                borderRadius: "12px", 
+                                border: "1px solid #e2e8f0", 
+                                boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                                padding: "12px 16px"
+                              }} 
+                            />
+                            <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: "12px" }} />
+                            <Bar 
+                              dataKey="earlyTerm" 
+                              name="ภาคต้น" 
+                              fill="#8b5cf6" 
+                              radius={[0, 4, 4, 0]}
+                              barSize={14}
+                              label={renderBarValueLabel} 
+                            />
+                            <Bar 
+                              dataKey="lateTerm" 
+                              name="ภาคปลาย" 
+                              fill="#f97316" 
+                              radius={[0, 4, 4, 0]} 
+                              barSize={14}
+                              label={renderBarValueLabel} 
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูลระดับปริญญาโทสำหรับปีการศึกษาที่เลือก" />
+                    )}
+                  </div>
+                </Card>
+              </div>
             </>
           )}
 
