@@ -24,10 +24,10 @@ import {
 
 const { Header, Content } = Layout;
 
-// Palette สีสำหรับกราฟย้อนหลัง
-const YEARLY_COLORS = ["#2f3559", "#7272b0", "#b7a8bd", "#dcd5e5"];
+// Palette สีสำหรับกราฟย้อนหลัง (ใช้โทน Teal/Sky เช่นเดียวกับหน้า GraduateQualityPage)
+const YEARLY_COLORS = ["#0ea5e9", "#0284c7", "#0369a1", "#075985"];
 
-// Pure Helper Functions (วางไว้นอก Component เพื่อป้องกัน re-declaration)
+// Pure Helper Functions
 const cleanString = (str) => {
   if (!str) return "";
   return String(str).replace(/\s+/g, "").replace(/['"]+/g, "").trim();
@@ -39,6 +39,13 @@ const extractYear = (yearStr) => {
   return match ? match[0] : String(yearStr).trim();
 };
 
+// ฟังก์ชันแปลงค่าตัวเลขให้แสดงทศนิยม 2 ตำแหน่ง
+const formatScore = (val) => {
+  if (val === undefined || val === null || val === "" || val === 0) return "-";
+  const num = Number(val);
+  return isNaN(num) ? "-" : num.toFixed(2);
+};
+
 function EvaluationPage() {
   // สถานะการโหลดข้อมูล
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +55,7 @@ function EvaluationPage() {
   const [selectedMajor, setSelectedMajor] = useState("");
   const [appliedFilters, setAppliedFilters] = useState({ year: "", major: "" });
   
-  // ฟิลเตอร์แยกเฉพาะโซนกราฟย้อนหลัง (ทำงานอิสระ 100%)
+  // ฟิลเตอร์แยกเฉพาะโซนกราฟย้อนหลัง
   const [trendYearFilter, setTrendYearFilter] = useState("");   
   const [trendMajorFilter, setTrendMajorFilter] = useState(""); 
 
@@ -130,7 +137,6 @@ function EvaluationPage() {
         const year = extractYear(item["ปีการศึกษา"]);
         const majorClean = cleanString(item["ชื่อสาขา"]);
 
-        // ใช้ tableYearFilter หากมีการเลือกปีในตาราง หรือใช้ appliedFilters.major จากการประมวลผล
         if (tableYearFilter && year !== tableYearFilter) return false;
         if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return false;
         return true;
@@ -190,7 +196,9 @@ function EvaluationPage() {
     };
   }, [filteredData]);
 
-  // 6. กราฟแท่งรายองค์ประกอบ
+  // 6. กราฟแท่งรายองค์ประกอบ (ใช้สีเดียวกับ GraduateQualityPage)
+  const tqfColors = ["#0284c7", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#3b82f6", "#6366f1"];
+
   const dynamicGraphData = useMemo(() => {
     if (filteredData.length === 0) return [];
     return [
@@ -258,26 +266,26 @@ function EvaluationPage() {
     });
   }, [rawData, trendYearFilter, trendMajorFilter]);
 
-  // คอลัมน์สำหรับตารางรายละเอียดด้านล่างสุด
+  // คอลัมน์สำหรับตารางรายละเอียดด้านล่างสุด (ปรับฟอร์แมตตัวเลข 2 ตำแหน่ง)
   const tableColumns = [
     { title: "ปีการศึกษา", dataIndex: "year", key: "year", width: 105, align: "center" },
     { title: "สาขาวิชา", dataIndex: "major", key: "major" },
-    { title: "Input", dataIndex: "Input", key: "Input", align: "center", render: v => v || "-" },
-    { title: "Process", dataIndex: "Process", key: "Process", align: "center", render: v => v || "-" },
-    { title: "Output", dataIndex: "Output", key: "Output", align: "center", render: v => v || "-" },
-    { title: "องค์ฯ 2 บัณฑิต", dataIndex: "องค์ที่ 2 บัณฑิต", key: "c2", align: "center", render: v => v || "-" },
-    { title: "องค์ฯ 3 นิสิต", dataIndex: "องค์ที่ 3 นิสิต", key: "c3", align: "center", render: v => v || "-" },
-    { title: "องค์ฯ 4 อาจารย์", dataIndex: "องค์ที่ 4อาจารย์", key: "c4", align: "center", render: v => v || "-" },
-    { title: "องค์ฯ 5 หลักสูตร", dataIndex: "องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน", key: "c5", align: "center", render: v => v || "-" },
-    { title: "องค์ฯ 6 สิ่งสนับสนุน", dataIndex: "องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้", key: "c6", align: "center", render: v => v || "-" },
+    { title: "Input", dataIndex: "Input", key: "Input", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "Process", dataIndex: "Process", key: "Process", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "Output", dataIndex: "Output", key: "Output", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 2 บัณฑิต", dataIndex: "องค์ที่ 2 บัณฑิต", key: "c2", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 3 นิสิต", dataIndex: "องค์ที่ 3 นิสิต", key: "c3", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 4 อาจารย์", dataIndex: "องค์ที่ 4อาจารย์", key: "c4", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 5 หลักสูตร", dataIndex: "องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน", key: "c5", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 6 สิ่งสนับสนุน", dataIndex: "องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้", key: "c6", align: "center", render: v => <strong>{formatScore(v)}</strong> },
     { 
       title: "คะแนนเฉลี่ยรวม", 
       dataIndex: "คะแนนเฉลี่ยรวม", 
       key: "total", 
       align: "center", 
       render: (v, record) => {
-        const val = v || record["คะแนนรวม"] || "-";
-        return <span style={{ color: "#722ed1", fontWeight: "bold" }}>{val}</span>;
+        const val = v || record["คะแนนรวม"];
+        return <span style={{ color: "#0d9488", fontWeight: "bold" }}>{formatScore(val)}</span>;
       } 
     },
   ];
@@ -305,7 +313,7 @@ function EvaluationPage() {
                 {trendChartsData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={YEARLY_COLORS[index % YEARLY_COLORS.length]} />
                 ))}
-                <LabelList dataKey={dataKey} position="top" style={{ fill: '#475569', fontSize: 11, fontWeight: '600' }} formatter={(v) => v > 0 ? v : ''} />
+                <LabelList dataKey={dataKey} position="top" style={{ fill: '#475569', fontSize: 11, fontWeight: '600' }} formatter={(v) => v > 0 ? Number(v).toFixed(2) : ''} />
               </Bar>
               <Line type="linear" dataKey={dataKey} stroke="#ef4444" strokeWidth={2.5} dot={{ r: 4, fill: "#ef4444" }} activeDot={{ r: 6 }} />
             </BarChart>
@@ -330,10 +338,10 @@ function EvaluationPage() {
           </div>
         </Header>
 
-        <Content style={{ padding: "16px 32px 32px 32px", background: "#f5f5f5" }}>
+        <Content style={{ padding: "16px 32px 32px 32px", background: "#f8fafc" }}>
           
           {/* MAIN FILTER SECTION */}
-          <div style={{ background: "#fff", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+          <div style={{ background: "#fff", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>ปีการศึกษา</div>
@@ -351,77 +359,96 @@ function EvaluationPage() {
               </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-              <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} loading={isLoading} style={{ borderRadius: 10, background: "#722ed1", borderColor: "#722ed1" }}>
-                ประมวลผลการประเมินหลักสูตร
+              <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} loading={isLoading} style={{ borderRadius: 10, background: "#0d9488", borderColor: "#0d9488", fontWeight: 500 }}>
+                ประมวลผล
               </Button>
             </div>
           </div>
 
-          {/* MAIN KPI ZONE */}
+          {/* MAIN KPI ZONE - ปรับแต่งสีและสไตล์การ์ดใหม่ตามธีม GraduateQualityPage */}
           <Spin spinning={isLoading}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20, marginBottom: 24 }}>
-              <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #d3adf7", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
-                <h3 style={{ color: "#722ed1", marginBottom: 15, fontSize: 15, fontWeight: 600 }}>คะแนนเฉลี่ยรวมหลักสูตร</h3>
+              
+              {/* Card วงกลม คะแนนรวม */}
+              <Card style={{ borderRadius: 20, textAlign: "center", border: "none", boxShadow: "0 10px 25px -5px rgba(13, 148, 136, 0.15)", background: "linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)" }}>
+                <h3 style={{ color: "#0f766e", marginBottom: 15, fontWeight: "700" }}>คะแนนเฉลี่ยรวมหลักสูตร</h3>
                 <Progress 
                   type="circle" 
                   percent={(stats.avg / 5) * 100} 
-                  format={() => stats.avg.toFixed(2)}
-                  strokeColor="#722ed1"
+                  format={() => <span style={{ fontSize: 32, fontWeight: "bold", color: "#0f766e" }}>{stats.avg.toFixed(2)}</span>}
+                  strokeColor={{ '0%': '#14b8a6', '100%': '#0f766e' }}
+                  strokeWidth={10}
                   size={140}
                 />
-                <div style={{ marginTop: 15, color: "#8c8c8c", fontSize: 13 }}>คะแนนเต็ม 5.00 คะแนน</div>
+                <div style={{ marginTop: 15, color: "#64748b", fontWeight: 500, fontSize: 13 }}>จากคะแนนเต็ม 5.00 คะแนน</div>
               </Card>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 15 }}>
-                <div style={{ background: "#f9f0ff", padding: 20, borderRadius: 15, border: "1px solid #d3adf7" }}>
-                  <div style={{ color: "#8c8c8c", fontSize: 12 }}>ตัวบ่งชี้หลัก</div>
-                  <h4 style={{ margin: "5px 0", fontSize: 14 }}>ด้าน Input</h4>
-                  <h2>{stats.input.toFixed(2)}</h2>
-                  <BookOutlined style={{ fontSize: 24, color: "#722ed1", float: "right", marginTop: -30, opacity: 0.4 }} />
+              {/* Grid 3 ตัวบ่งชี้หลัก + องค์ประกอบ 2-6 ด้านล่าง */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 15 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 15 }}>
+                  
+                  {/* ด้าน Input */}
+                  <div style={{ background: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)", padding: 18, borderRadius: 16, border: "1px solid #93c5fd", boxShadow: "0 4px 6px -1px rgba(2, 132, 199, 0.1)", position: "relative", overflow: "hidden" }}>
+                    <div style={{ color: "#0369a1", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>ตัวบ่งชี้หลัก</div>
+                    <h4 style={{ margin: "4px 0 10px 0", fontSize: 14, color: "#0f172a", fontWeight: "600" }}>ด้าน Input</h4>
+                    <div style={{ fontSize: 26, fontWeight: "800", color: "#0284c7" }}>{stats.input.toFixed(2)}</div>
+                    <BookOutlined style={{ fontSize: 36, color: "#0284c7", position: "absolute", right: 12, bottom: 12, opacity: 0.25 }} />
+                  </div>
+
+                  {/* ด้าน Process */}
+                  <div style={{ background: "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)", padding: 18, borderRadius: 16, border: "1px solid #6ee7b7", boxShadow: "0 4px 6px -1px rgba(16, 185, 129, 0.1)", position: "relative", overflow: "hidden" }}>
+                    <div style={{ color: "#047857", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>ตัวบ่งชี้หลัก</div>
+                    <h4 style={{ margin: "4px 0 10px 0", fontSize: 14, color: "#0f172a", fontWeight: "600" }}>ด้าน Process</h4>
+                    <div style={{ fontSize: 26, fontWeight: "800", color: "#059669" }}>{stats.process.toFixed(2)}</div>
+                    <SlidersOutlined style={{ fontSize: 36, color: "#059669", position: "absolute", right: 12, bottom: 12, opacity: 0.25 }} />
+                  </div>
+
+                  {/* ด้าน Output */}
+                  <div style={{ background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)", padding: 18, borderRadius: 16, border: "1px solid #fcd34d", boxShadow: "0 4px 6px -1px rgba(245, 158, 11, 0.1)", position: "relative", overflow: "hidden" }}>
+                    <div style={{ color: "#b45309", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>ตัวบ่งชี้หลัก</div>
+                    <h4 style={{ margin: "4px 0 10px 0", fontSize: 14, color: "#0f172a", fontWeight: "600" }}>ด้าน Output</h4>
+                    <div style={{ fontSize: 26, fontWeight: "800", color: "#d97706" }}>{stats.output.toFixed(2)}</div>
+                    <ExportOutlined style={{ fontSize: 36, color: "#d97706", position: "absolute", right: 12, bottom: 12, opacity: 0.25 }} />
+                  </div>
                 </div>
-                <div style={{ background: "#f9f0ff", padding: 20, borderRadius: 15, border: "1px solid #d3adf7" }}>
-                  <div style={{ color: "#8c8c8c", fontSize: 12 }}>ตัวบ่งชี้หลัก</div>
-                  <h4 style={{ margin: "5px 0", fontSize: 14 }}>ด้าน Process</h4>
-                  <h2>{stats.process.toFixed(2)}</h2>
-                  <SlidersOutlined style={{ fontSize: 24, color: "#722ed1", float: "right", marginTop: -30, opacity: 0.4 }} />
-                </div>
-                <div style={{ background: "#f9f0ff", padding: 20, borderRadius: 15, border: "1px solid #d3adf7" }}>
-                  <div style={{ color: "#8c8c8c", fontSize: 12 }}>ตัวบ่งชี้หลัก</div>
-                  <h4 style={{ margin: "5px 0", fontSize: 14 }}>ด้าน Output</h4>
-                  <h2>{stats.output.toFixed(2)}</h2>
-                  <ExportOutlined style={{ fontSize: 24, color: "#722ed1", float: "right", marginTop: -30, opacity: 0.4 }} />
-                </div>
-                <div style={{ background: "#fff", padding: 16, borderRadius: 12, border: "1px solid #e8e8e8", gridColumn: "span 3", display: "flex", justifyContent: "space-around", alignItems: "center", boxShadow: "0 2px 6px rgba(0,0,0,0.01)" }}>
+
+                {/* แถบรวมคะแนนรายองค์ประกอบ 2-6 */}
+                <div style={{ background: "#ffffff", padding: "16px 20px", borderRadius: 16, border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-around", alignItems: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c" }}>องค์ฯ 2 บัณฑิต</div>
-                    <strong style={{ fontSize: 16, color: "#722ed1" }}>{stats.comp2.toFixed(2)}</strong>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>องค์ฯ 2 บัณฑิต</div>
+                    <strong style={{ fontSize: 18, color: "#0d9488", fontWeight: "700" }}>{stats.comp2.toFixed(2)}</strong>
                   </div>
+                  <div style={{ width: 1, height: 28, background: "#e2e8f0" }} />
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c" }}>องค์ฯ 3 นิสิต</div>
-                    <strong style={{ fontSize: 16, color: "#722ed1" }}>{stats.comp3.toFixed(2)}</strong>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>องค์ฯ 3 นิสิต</div>
+                    <strong style={{ fontSize: 18, color: "#0d9488", fontWeight: "700" }}>{stats.comp3.toFixed(2)}</strong>
                   </div>
+                  <div style={{ width: 1, height: 28, background: "#e2e8f0" }} />
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c" }}>องค์ฯ 4 อาจารย์</div>
-                    <strong style={{ fontSize: 16, color: "#722ed1" }}>{stats.comp4.toFixed(2)}</strong>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>องค์ฯ 4 อาจารย์</div>
+                    <strong style={{ fontSize: 18, color: "#0d9488", fontWeight: "700" }}>{stats.comp4.toFixed(2)}</strong>
                   </div>
+                  <div style={{ width: 1, height: 28, background: "#e2e8f0" }} />
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c" }}>องค์ฯ 5 หลักสูตร</div>
-                    <strong style={{ fontSize: 16, color: "#722ed1" }}>{stats.comp5.toFixed(2)}</strong>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>องค์ฯ 5 หลักสูตร</div>
+                    <strong style={{ fontSize: 18, color: "#0d9488", fontWeight: "700" }}>{stats.comp5.toFixed(2)}</strong>
                   </div>
+                  <div style={{ width: 1, height: 28, background: "#e2e8f0" }} />
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#8c8c8c" }}>องค์ฯ 6 สิ่งสนับสนุน</div>
-                    <strong style={{ fontSize: 16, color: "#722ed1" }}>{stats.comp6.toFixed(2)}</strong>
+                    <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>องค์ฯ 6 สิ่งสนับสนุน</div>
+                    <strong style={{ fontSize: 18, color: "#0d9488", fontWeight: "700" }}>{stats.comp6.toFixed(2)}</strong>
                   </div>
                 </div>
               </div>
+
             </div>
           </Spin>
 
           {/* CHART ZONE (แผนภูมิแท่งผลการประเมินคุณภาพรายองค์ประกอบ) */}
-          <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          <div style={{ background: "white", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <BarChartOutlined style={{ fontSize: 20, color: "#722ed1" }} />
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>แผนภูมิแท่งผลการประเมินคุณภาพรายองค์ประกอบ</h3>
+              <BarChartOutlined style={{ fontSize: 20, color: "#0d9488" }} />
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#1e293b" }}>แผนภูมิแสดงผลการประเมินคุณภาพรายองค์ประกอบ</h3>
             </div>
             <Spin spinning={isLoading}>
               {dynamicGraphData.length === 0 ? <Empty description="ไม่พบข้อมูลสำหรับการวาดแผนภูมิประเมิน" /> : (
@@ -433,8 +460,11 @@ function EvaluationPage() {
                       <YAxis axisLine={false} tickLine={false} domain={[0, 5]} style={{ fontSize: 12, fill: "#64748b" }} />
                       <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} formatter={(value) => [`${Number(value).toFixed(2)} คะแนน`]} />
                       
-                      <Bar dataKey="score" name="คะแนนผลการประเมินคุณภาพ" fill="#722ed1" radius={[6, 6, 0, 0]} barSize={35}>
-                        <LabelList dataKey="score" position="top" style={{ fontSize: 11, fontWeight: 600, fill: "#722ed1" }} formatter={(v) => v > 0 ? Number(v).toFixed(2) : ''} />
+                      <Bar dataKey="score" name="คะแนนผลการประเมินคุณภาพ" radius={[8, 8, 0, 0]} barSize={40}>
+                        <LabelList dataKey="score" position="top" style={{ fontSize: 11, fontWeight: 600, fill: "#334155" }} formatter={(v) => v > 0 ? Number(v).toFixed(2) : ''} />
+                        {dynamicGraphData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={tqfColors[index % tqfColors.length]} />
+                        ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -444,12 +474,12 @@ function EvaluationPage() {
           </div>
 
           {/* วิเคราะห์แนวโน้มผลการประเมินคุณภาพย้อนหลัง 4 ปี */}
-          <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          <div style={{ background: "white", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             
             <div style={{
               background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
               padding: "24px 32px",
-              borderRadius: 16,
+              borderRadius: 20,
               boxShadow: "0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.15)",
               marginBottom: 24,
               display: "flex",
@@ -464,7 +494,7 @@ function EvaluationPage() {
                   วิเคราะห์แนวโน้มผลการประเมินคุณภาพย้อนหลัง
                 </h3>
                 <p style={{ color: "#94a3b8", fontSize: "13px", margin: "6px 0 0 0" }}>
-                  เปรียบเทียบสถิติและผลประเมินย้อนหลัง 4 ปีการศึกษาเพื่อวิเคราะห์คุณภาพอย่างต่อเนื่อง
+                  เปรียบเทียบสถิติและผลประเมิน
                 </p>
               </div>
               
@@ -513,13 +543,13 @@ function EvaluationPage() {
             </Spin>
           </div>
 
-          {/* 📋 TABLE ZONE รายละเอียดคะแนนการประเมินหลักสูตรรายปี (ตารางล่างสุด) */}
-          <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          {/* TABLE ZONE รายละเอียดคะแนนการประเมินหลักสูตรรายปี (ตารางล่างสุด) */}
+          <div style={{ background: "white", padding: 24, borderRadius: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>รายละเอียดคะแนนการประเมินหลักสูตรรายปี</h3>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f9fafb", padding: "6px 12px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
-                <span style={{ fontSize: 13, fontWeight: 500, color: "#4b5563" }}>ปีการศึกษา:</span>
-                <select value={tableYearFilter} onChange={(e) => setTableYearFilter(e.target.value)} style={{ background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#722ed1", cursor: "pointer", outline: "none" }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#1e293b" }}>รายละเอียดคะแนนการประเมินรายหลักสูตร</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", padding: "6px 14px", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "#475569" }}>ปีการศึกษา:</span>
+                <select value={tableYearFilter} onChange={(e) => setTableYearFilter(e.target.value)} style={{ background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#0d9488", cursor: "pointer", outline: "none" }}>
                   <option value="">แสดงทุกปี</option>
                   {years.map((year) => <option key={year} value={year}>ปีการศึกษา {year}</option>)}
                 </select>
