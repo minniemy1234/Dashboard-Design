@@ -691,7 +691,7 @@ function Dashboard() {
                     }}>
                       <div style={{ minHeight: "44px" }}>
                         <div style={{ color: "#fef3c7", fontSize: "12px", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase" }}>ACADEMIC STAFF</div>
-                        <h3 style={{ margin: "2px 0 0 0", fontSize: "15px", color: "#fffbeb", fontWeight: "500", lineHeight: "1.3" }}>บุคลากรสายผู้สอน</h3>
+                        <h3 style={{ margin: "2px 0 0 0", fontSize: "15px", color: "#fffbeb", fontWeight: "500", lineHeight: "1.3" }}>บุคลากร</h3>
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline" }}>
                         <span style={{ fontSize: "32px", fontWeight: "800", color: "#ffffff", lineHeight: "1" }}>
