@@ -19,7 +19,8 @@ import {
   SafetyCertificateOutlined, 
   TrophyOutlined, 
   VerifiedOutlined,
-  ReadOutlined
+  ReadOutlined,
+  TeamOutlined
 } from "@ant-design/icons";
 
 const { Header, Content } = Layout;
@@ -158,11 +159,11 @@ function GraduateQualityPage() {
   }, [processedData]);
 
   const tqfColors = [
-    "#c5979d", 
-    "#4b8f8c", 
-    "#484d6d", 
-    "#2c365e", 
-    "#2b193d"  
+    "#0284c7", 
+    "#10b981", 
+    "#f59e0b", 
+    "#8b5cf6", 
+    "#ec4899"  
   ];
 
   const chartData = [
@@ -246,15 +247,22 @@ function GraduateQualityPage() {
     return result;
   }, [rawData, trendYear, trendMajor]);
 
+  // ฟังก์ชันจัดรูปแบบการแสดงผลตัวเลขเป็น 2 ตำแหน่ง
+  const formatScore = (val) => {
+    if (val === undefined || val === null || val === "" || val === 0) return "-";
+    const num = Number(val);
+    return isNaN(num) ? "-" : num.toFixed(2);
+  };
+
   const tableColumns = [
     { title: "ปีการศึกษา", dataIndex: "year", key: "year", width: 105, align: "center" },
     { title: "สาขาวิชา", dataIndex: "major", key: "major" },
-    { title: "คุณธรรมจริยธรรม", dataIndex: "d1", key: "d1", align: "center", render: v => <strong>{v || "-"}</strong> },
-    { title: "ด้านความรู้", dataIndex: "d2", key: "d2", align: "center", render: v => <strong>{v || "-"}</strong> },
-    { title: "ทักษะทางปัญญา", dataIndex: "d3", key: "d3", align: "center", render: v => <strong>{v || "-"}</strong> },
-    { title: "ทักษะความสัมพันธ์ฯ", dataIndex: "d4", key: "d4", align: "center", render: v => <strong>{v || "-"}</strong> },
-    { title: "วิเคราะห์เชิงตัวเลข/ไอที/สื่อสาร", dataIndex: "d5", key: "d5", align: "center", render: v => <strong>{v || "-"}</strong> },
-    { title: "คะแนนรวม", dataIndex: "total", key: "total", align: "center", render: v => <span style={{ color: "#13c2c2", fontWeight: "bold" }}>{v || "-"}</span> },
+    { title: "คุณธรรมจริยธรรม", dataIndex: "d1", key: "d1", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "ด้านความรู้", dataIndex: "d2", key: "d2", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "ทักษะทางปัญญา", dataIndex: "d3", key: "d3", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "ทักษะความสัมพันธ์ฯ", dataIndex: "d4", key: "d4", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "วิเคราะห์เชิงตัวเลข/ไอที/สื่อสาร", dataIndex: "d5", key: "d5", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "คะแนนรวม", dataIndex: "total", key: "total", align: "center", render: v => <span style={{ color: "#0d9488", fontWeight: "bold" }}>{formatScore(v)}</span> },
   ];
 
   return (
@@ -268,10 +276,10 @@ function GraduateQualityPage() {
           </div>
         </Header>
 
-        <Content style={{ padding: "16px 32px 32px 32px", background: "#f5f5f5" }}>
+        <Content style={{ padding: "16px 32px 32px 32px", background: "#f8fafc" }}>
           
           {/* FILTER SECTION */}
-          <div style={{ background: "#fff", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
+          <div style={{ background: "#fff", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>ปีการศึกษา </div>
@@ -289,75 +297,86 @@ function GraduateQualityPage() {
               </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-              <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} style={{ borderRadius: 10, background: "#13c2c2", borderColor: "#13c2c2" }}>
-                ประมวลผลข้อมูลประเมิน
+              <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} style={{ borderRadius: 10, background: "#0d9488", borderColor: "#0d9488", fontWeight: 500 }}>
+                ประมวลผล
               </Button>
             </div>
           </div>
 
-          {/* KPI ZONE */}
+          {/* KPI ZONE - ปรับแต่งสีและความโดดเด่นใหม่ */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20, marginBottom: 24 }}>
-            <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #b5f5ec" }}>
-              <h3 style={{ color: "#13c2c2", marginBottom: 15 }}>คะแนนเฉลี่ยรวมทุกด้าน</h3>
+            <Card style={{ borderRadius: 20, textAlign: "center", border: "none", boxShadow: "0 10px 25px -5px rgba(13, 148, 136, 0.15)", background: "linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%)" }}>
+              <h3 style={{ color: "#0f766e", marginBottom: 15, fontWeight: "700" }}>คะแนนเฉลี่ยรวมทุกด้าน</h3>
               <Progress 
                 type="circle" 
                 percent={(Number(stats.avg) / 5) * 100} 
-                format={() => stats.avg}
-                strokeColor="#13c2c2"
+                format={() => <span style={{ fontSize: 32, fontWeight: "bold", color: "#0f766e" }}>{stats.avg}</span>}
+                strokeColor={{ '0%': '#14b8a6', '100%': '#0f766e' }}
+                strokeWidth={10}
                 size={140}
               />
-              <div style={{ marginTop: 15, color: "#8c8c8c" }}>จากคะแนนเต็ม 5.00</div>
+              <div style={{ marginTop: 15, color: "#64748b", fontWeight: 500, fontSize: 13 }}>จากคะแนนเต็ม 5.00</div>
             </Card>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 15 }}>
-              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec" }}>
-                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 1</div>
-                <h4 style={{ margin: "5px 0", fontSize: 13 }}>คุณธรรมจริยธรรม</h4>
-                <h2>{stats.d1}</h2>
-                <SafetyCertificateOutlined style={{ fontSize: 24, color: "#13c2c2", float: "right", marginTop: -30, opacity: 0.5 }} />
+              {/* ด้านที่ 1 */}
+              <div style={{ background: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)", padding: 18, borderRadius: 16, border: "1px solid #93c5fd", boxShadow: "0 4px 6px -1px rgba(2, 132, 199, 0.1)", position: "relative", overflow: "hidden" }}>
+                <div style={{ color: "#0369a1", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>ด้านที่ 1</div>
+                <h4 style={{ margin: "4px 0 10px 0", fontSize: 13, color: "#0f172a", fontWeight: "600" }}>คุณธรรมจริยธรรม</h4>
+                <div style={{ fontSize: 26, fontWeight: "800", color: "#0284c7" }}>{stats.d1}</div>
+                <SafetyCertificateOutlined style={{ fontSize: 36, color: "#0284c7", position: "absolute", right: 12, bottom: 12, opacity: 0.25 }} />
               </div>
-              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec" }}>
-                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 2</div>
-                <h4 style={{ margin: "5px 0", fontSize: 13 }}>ด้านความรู้</h4>
-                <h2>{stats.d2}</h2>
-                <ReadOutlined style={{ fontSize: 24, color: "#13c2c2", float: "right", marginTop: -30, opacity: 0.5 }} />
+
+              {/* ด้านที่ 2 */}
+              <div style={{ background: "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)", padding: 18, borderRadius: 16, border: "1px solid #6ee7b7", boxShadow: "0 4px 6px -1px rgba(16, 185, 129, 0.1)", position: "relative", overflow: "hidden" }}>
+                <div style={{ color: "#047857", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>ด้านที่ 2</div>
+                <h4 style={{ margin: "4px 0 10px 0", fontSize: 13, color: "#0f172a", fontWeight: "600" }}>ด้านความรู้</h4>
+                <div style={{ fontSize: 26, fontWeight: "800", color: "#059669" }}>{stats.d2}</div>
+                <ReadOutlined style={{ fontSize: 36, color: "#059669", position: "absolute", right: 12, bottom: 12, opacity: 0.25 }} />
               </div>
-              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec" }}>
-                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 3</div>
-                <h4 style={{ margin: "5px 0", fontSize: 13 }}>ทักษะทางปัญญา</h4>
-                <h2>{stats.d3}</h2>
-                <TrophyOutlined style={{ fontSize: 24, color: "#13c2c2", float: "right", marginTop: -30, opacity: 0.5 }} />
+
+              {/* ด้านที่ 3 */}
+              <div style={{ background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)", padding: 18, borderRadius: 16, border: "1px solid #fcd34d", boxShadow: "0 4px 6px -1px rgba(245, 158, 11, 0.1)", position: "relative", overflow: "hidden" }}>
+                <div style={{ color: "#b45309", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>ด้านที่ 3</div>
+                <h4 style={{ margin: "4px 0 10px 0", fontSize: 13, color: "#0f172a", fontWeight: "600" }}>ทักษะทางปัญญา</h4>
+                <div style={{ fontSize: 26, fontWeight: "800", color: "#d97706" }}>{stats.d3}</div>
+                <TrophyOutlined style={{ fontSize: 36, color: "#d97706", position: "absolute", right: 12, bottom: 12, opacity: 0.25 }} />
               </div>
-              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec" }}>
-                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 4</div>
-                <h4 style={{ margin: "5px 0", fontSize: 13 }}>ทักษะสัมพันธ์ฯ</h4>
-                <h2>{stats.d4}</h2>
+
+              {/* ด้านที่ 4 */}
+              <div style={{ background: "linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)", padding: 18, borderRadius: 16, border: "1px solid #c4b5fd", boxShadow: "0 4px 6px -1px rgba(139, 92, 246, 0.1)", position: "relative", overflow: "hidden" }}>
+                <div style={{ color: "#6d28d9", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>ด้านที่ 4</div>
+                <h4 style={{ margin: "4px 0 10px 0", fontSize: 13, color: "#0f172a", fontWeight: "600" }}>ทักษะสัมพันธ์ฯ</h4>
+                <div style={{ fontSize: 26, fontWeight: "800", color: "#7c3aed" }}>{stats.d4}</div>
+                <TeamOutlined style={{ fontSize: 36, color: "#7c3aed", position: "absolute", right: 12, bottom: 12, opacity: 0.25 }} />
               </div>
-              <div style={{ background: "#e6fffb", padding: 20, borderRadius: 15, border: "1px solid #b5f5ec", gridColumn: "span 2" }}>
-                <div style={{ color: "#8c8c8c", fontSize: 12 }}>ด้านที่ 5</div>
-                <h4 style={{ margin: "5px 0", fontSize: 13 }}>วิเคราะห์ตัวเลข/การสื่อสาร/ไอที</h4>
-                <h2>{stats.d5}</h2>
-                <VerifiedOutlined style={{ fontSize: 24, color: "#13c2c2", float: "right", marginTop: -30, opacity: 0.5 }} />
+
+              {/* ด้านที่ 5 */}
+              <div style={{ background: "linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%)", padding: 18, borderRadius: 16, border: "1px solid #f9a8d4", boxShadow: "0 4px 6px -1px rgba(236, 72, 153, 0.1)", gridColumn: "span 2", position: "relative", overflow: "hidden" }}>
+                <div style={{ color: "#be185d", fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>ด้านที่ 5</div>
+                <h4 style={{ margin: "4px 0 10px 0", fontSize: 13, color: "#0f172a", fontWeight: "600" }}>วิเคราะห์ตัวเลข/การสื่อสาร/ไอที</h4>
+                <div style={{ fontSize: 26, fontWeight: "800", color: "#db2777" }}>{stats.d5}</div>
+                <VerifiedOutlined style={{ fontSize: 36, color: "#db2777", position: "absolute", right: 16, bottom: 12, opacity: 0.25 }} />
               </div>
             </div>
           </div>
 
           {/* GRAPH - เปรียบเทียบค่าเฉลี่ยรายด้าน */}
-          <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24 }}>
-            <h3 style={{ marginBottom: 20 }}>แผนภูมิเปรียบเทียบค่าเฉลี่ยรายด้าน</h3>
+          <div style={{ background: "white", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+            <h3 style={{ marginBottom: 20, fontWeight: "600", color: "#1e293b" }}>แผนภูมิแสดงผลเปรียบเทียบค่าเฉลี่ยรายด้าน</h3>
             <div style={{ height: 350 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 5]} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: '#f0fdfa' }} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b" }} />
+                  <YAxis domain={[0, 5]} axisLine={false} tickLine={false} tick={{ fill: "#64748b" }} />
+                  <Tooltip cursor={{ fill: '#f8fafc' }} />
                   <Bar dataKey="score" radius={[8, 8, 0, 0]} barSize={50}>
                     <LabelList 
                       dataKey="score" 
                       position="top" 
                       dy={-10} 
-                      style={{ fill: '#475569', fontSize: 12, fontWeight: 'bold' }} 
+                      style={{ fill: '#334155', fontSize: 12, fontWeight: 'bold' }} 
                       formatter={(val) => Number(val).toFixed(2)}
                     />
                     {chartData.map((entry, index) => (
@@ -373,7 +392,7 @@ function GraduateQualityPage() {
           <div style={{
             background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
             padding: "24px 32px",
-            borderRadius: 16,
+            borderRadius: 20,
             boxShadow: "0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.15)",
             marginBottom: 28,
             display: "flex",
@@ -410,7 +429,7 @@ function GraduateQualityPage() {
 
           {/* 8. โซนแสดงกราฟแนวโน้ม 6 ด้านตามมาตรฐาน TQF */}
           {(() => {
-            const yearlyColors = ["#173b6f", "#3071a4", "#87b8e5", "#b8aab4"];
+            const yearlyColors = ["#0ea5e9", "#0284c7", "#0369a1", "#075985"];
 
             return (
               <div style={{ marginBottom: 32 }}>
@@ -638,16 +657,16 @@ function GraduateQualityPage() {
           })()} 
 
           {/* TABLE ZONE */}
-          <div style={{ background: "white", padding: 24, borderRadius: 16 }}>
+          <div style={{ background: "white", padding: 24, borderRadius: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-              <h3 style={{ margin: 0 }}>รายละเอียดคะแนนการประเมินแยกตามปีและสาขา</h3>
+              <h3 style={{ margin: 0, fontWeight: "600", color: "#1e293b" }}>รายละเอียดคะแนนการประเมินแยกตามปีและสาขา</h3>
               
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f9fafb", padding: "6px 12px", borderRadius: 10, border: "1px solid #e5e7eb" }}>
-                <span style={{ fontSize: 13, fontWeight: 500, color: "#4b5563" }}>ปีการศึกษา:</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", padding: "6px 14px", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "#475569" }}>ปีการศึกษา:</span>
                 <select 
                   value={tableYearFilter} 
                   onChange={(e) => setTableYearFilter(e.target.value)} 
-                  style={{ background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#13c2c2", cursor: "pointer", outline: "none" }}
+                  style={{ background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#0d9488", cursor: "pointer", outline: "none" }}
                 >
                   <option value="">แสดงทุกปี</option>
                   {years.map((year) => <option key={year} value={year}>ปีการศึกษา {year}</option>)}
