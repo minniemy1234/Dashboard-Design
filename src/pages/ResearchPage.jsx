@@ -1,28 +1,67 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "../components/Sidebar";
-import { Layout, Card, Row, Col, Statistic, Alert, Tag } from "antd";
+import { Layout, Card, Row, Col, Alert, Select as AntSelect, Spin, Empty, Tag, Table } from "antd";
 import {
   ReadOutlined,
-  ExperimentOutlined,
   TrophyOutlined,
   LockOutlined,
   BarChartOutlined,
-  FileTextOutlined
+  PieChartOutlined,
+  SafetyCertificateOutlined,
+  FilterOutlined
 } from "@ant-design/icons";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  LabelList,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
+} from "recharts";
 import { db } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
 const { Header, Content } = Layout;
 
+// Palette สีสำหรับกราฟแท่งและกราฟวงกลม
+const BAR_COLORS = ["#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc", "#0369a1"];
+const HINDEX_COLORS = ["#8b5cf6", "#f472b6"]; // สีม่วงสำหรับ >=1, สีชมพูสำหรับ <1
+
+const extractYear = (yearStr) => {
+  if (!yearStr) return "";
+  const match = String(yearStr).match(/\d+/);
+  return match ? match[0] : String(yearStr).trim();
+};
+
 function ResearchPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Raw data จาก localStorage สำหรับทั้ง 3 ไฟล์
+  const [researchDataList, setResearchDataList] = useState([]);
+  const [ipDataList, setIpDataList] = useState([]);
+  const [hIndexDataList, setHIndexDataList] = useState([]);
+
+  // Filter States
+  const [scopusFilter, setScopusFilter] = useState("ทั้งหมด");
+  const [levelFilter, setLevelFilter] = useState("ทั้งหมด");
+  const [selectedHIndexYear, setSelectedHIndexYear] = useState("");
 
   const currentEmail = (localStorage.getItem("email") || "").toLowerCase().trim();
 
   // เช็กสิทธิ์ Admin
   useEffect(() => {
-    if (!db) return;
+    if (!db) {
+      setIsAdmin(true);
+      setLoading(false);
+      return;
+    }
 
     const unsub = onSnapshot(doc(db, "system_config", "admins"), (docSnap) => {
       let adminList = ["naramon.si@ku.th"];
@@ -38,45 +77,133 @@ function ResearchPage() {
     return () => unsub();
   }, [currentEmail]);
 
-  // ค่าเริ่มต้นเป็น 0 รอการเชื่อมต่อข้อมูลไฟล์จริง
-  const researchData = {
-    // โซน 1: ผลงานวิจัย
-    totalResearch: 0,
-    impactResearch: 0,
-    scopusQ1: 0,
-    scopusTotal: 0,
-    internationalPapers: 0,
-    totalPapers: 0,
-    teachersWithIntPapers: 0,
-    nationalAwards: 0,
-    interAwards: 0,
-    scopusCitations6Years: 0,
-    citations5Years: 0,
+  // โหลดข้อมูลทั้ง 3 ไฟล์วิจัยจาก localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("dashboardData");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        
+        // 1. ไฟล์ผลงานวิจัย
+        const resList = parsed["ข้อมูลวิจัย(จำนวนผลงานวิจัย)"] || parsed["จำนวนผลงานวิจัย"] || parsed["ข้อมูลวิจัย"] || [];
+        setResearchDataList(Array.isArray(resList) ? resList : []);
 
-    // โซน 2: โครงการวิจัย
-    totalProjects: 0,
-    interFundedProjects: 0,
-    fundedProjects: 0,
-    requestedProjects: 0,
-    repeatLocalAgencies3Years: 0,
-    repeatInterAgencies3Years: 0,
-    totalLocalAgencies3Years: 0,
-    totalInterAgencies3Years: 0,
-    internalFunding: 0,
-    externalFunding: 0,
+        // 2. ไฟล์ทรัพย์สินทางปัญญา
+        const ipList = parsed["ข้อมูลวิจัย(จำนวนทรัพย์สินทางปัญญา)"] || parsed["จำนวนทรัพย์สินทางปัญญา"] || parsed["ทรัพย์สินทางปัญญา"] || [];
+        setIpDataList(Array.isArray(ipList) ? ipList : []);
 
-    // โซน 3: H-index
-    hIndex0: 0,
-    hIndex1_5: 0,
-    hIndex6_10: 0,
-    hIndexAbove10: 0,
-  };
+        // 3. ไฟล์ H-Index
+        const hList = parsed["ข้อมูลวิจัย(ค่า H-Index)"] || parsed["ค่า H-Index"] || parsed["H-Index"] || [];
+        setHIndexDataList(Array.isArray(hList) ? hList : []);
 
-  if (loading) return null;
+        // ตั้งค่าปีล่าสุดของ H-Index
+        if (Array.isArray(hList) && hList.length > 0) {
+          const years = hList.map(item => extractYear(item["ปี พ.ศ."] || item["ปีการศึกษา"])).filter(Boolean).sort().reverse();
+          if (years.length > 0) setSelectedHIndexYear(years[0]);
+        }
+      } catch (e) {
+        console.error("Error reading research data:", e);
+      }
+    }
+  }, []);
+
+  // --- 1. ตัวเลือก Dropdown ผลงานวิจัย ---
+  const scopusOptions = useMemo(() => {
+    const list = researchDataList.map(item => item["Scopus"] || item["ฐานข้อมูล"]).filter(Boolean);
+    return ["ทั้งหมด", ...new Set(list)];
+  }, [researchDataList]);
+
+  const levelOptions = useMemo(() => {
+    const list = researchDataList.map(item => item["ระดับการตีพิมพ์"]).filter(Boolean);
+    return ["ทั้งหมด", ...new Set(list)];
+  }, [researchDataList]);
+
+  // ข้อมูลกราฟแท่งเปรียบเทียบผลงานวิจัยรายปี
+  const researchBarChartData = useMemo(() => {
+    if (!researchDataList || researchDataList.length === 0) return [];
+
+    const filtered = researchDataList.filter(item => {
+      const matchScopus = scopusFilter === "ทั้งหมด" || (item["Scopus"] || item["ฐานข้อมูล"]) === scopusFilter;
+      const matchLevel = levelFilter === "ทั้งหมด" || item["ระดับการตีพิมพ์"] === levelFilter;
+      return matchScopus && matchLevel;
+    });
+
+    const yearMap = new Map();
+    filtered.forEach(item => {
+      const year = extractYear(item["ปี พ.ศ."] || item["ปีการศึกษา"] || item["ปี"]);
+      const count = Number(item["จำนวน"] || 0);
+      if (year) {
+        yearMap.set(year, (yearMap.get(year) || 0) + count);
+      }
+    });
+
+    return Array.from(yearMap.entries())
+      .map(([year, count]) => ({ year: `ปี ${year}`, count }))
+      .sort((a, b) => a.year.localeCompare(b.year));
+  }, [researchDataList, scopusFilter, levelFilter]);
+
+  // ยอดรวมผลงานวิจัย
+  const totalFilteredResearchCount = useMemo(() => {
+    return researchBarChartData.reduce((sum, d) => sum + d.count, 0);
+  }, [researchBarChartData]);
+
+  // --- 2. สรุปข้อมูลทรัพย์สินทางปัญญา ---
+  const ipSummary = useMemo(() => {
+    if (!ipDataList || ipDataList.length === 0) return { total: 0, items: [] };
+
+    let total = 0;
+    const items = ipDataList.map((item, idx) => {
+      const cnt = Number(item["จำนวน"] || 0);
+      total += cnt;
+      return {
+        key: idx,
+        year: extractYear(item["ปีงบประมาณ"] || item["ปี พ.ศ."]),
+        type: String(item["ประเภททรัพย์สินทางปัญญา"] || "").trim(),
+        level: String(item["ระดับทรัพย์สินทางปัญญา"] || "").trim(),
+        count: cnt
+      };
+    });
+
+    return { total, items };
+  }, [ipDataList]);
+
+  // --- 3. ข้อมูลกราฟวงกลม H-index ---
+  const hIndexYears = useMemo(() => {
+    const years = hIndexDataList.map(item => extractYear(item["ปี พ.ศ."] || item["ปีการศึกษา"])).filter(Boolean);
+    return [...new Set(years)].sort().reverse();
+  }, [hIndexDataList]);
+
+  const hIndexPieData = useMemo(() => {
+    if (!hIndexDataList || hIndexDataList.length === 0) return { chartData: [], total: 0, ge1: 0, lt1: 0 };
+
+    const activeYear = selectedHIndexYear || (hIndexYears.length > 0 ? hIndexYears[0] : "");
+    const match = hIndexDataList.find(item => extractYear(item["ปี พ.ศ."] || item["ปีการศึกษา"]) === activeYear);
+
+    if (!match) return { chartData: [], total: 0, ge1: 0, lt1: 0 };
+
+    const ge1 = Number(match["จำนวนอาจารย์ที่มีค่า H-Index ตั้งแต่ 1 ขึ้นไป"] || 0);
+    const lt1 = Number(match["จำนวนอาจารย์ที่มีค่า H-Index น้อยกว่า 1"] || 0);
+    const total = ge1 + lt1;
+
+    const chartData = [
+      { name: "H-Index ตั้งแต่ 1 ขึ้นไป", value: ge1 },
+      { name: "H-Index น้อยกว่า 1", value: lt1 }
+    ];
+
+    return { chartData, total, ge1, lt1 };
+  }, [hIndexDataList, selectedHIndexYear, hIndexYears]);
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+        <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+      </div>
+    );
+  }
 
   return (
     <Layout style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      <Sidebar />
+      <Sidebar defaultSelectedKey="research" />
       <Layout style={{ background: "transparent" }}>
         
         {/* HEADER */}
@@ -94,10 +221,10 @@ function ResearchPage() {
           <div style={{ display: "flex", alignItems: "baseline", gap: "12px", width: "100%" }}>
             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#142549", display: "flex", alignItems: "center" }}>
               <ReadOutlined style={{ color: "#00b4d8", marginRight: 8 }} />
-              ข้อมูลผลงานวิจัย โครงการวิจัย และ H-index
+              ข้อมูลผลงานวิจัย ทรัพย์สินทางปัญญา และ H-index
             </h2>
             <span style={{ color: "#64748b", fontSize: "12px" }}>
-              | ระบบสรุปสถิติด้านงานวิจัยและวิชาการ คณะฯ
+              | สรุปสถิติวิจัยและผลงานวิชาการของคณะฯ
             </span>
           </div>
         </Header>
@@ -116,7 +243,7 @@ function ResearchPage() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               
-              {/* โซน 1: ผลงานวิจัย */}
+              {/* โซนที่ 1: กราฟเปรียบเทียบผลงานวิจัย  */}
               <Card
                 bordered={false}
                 style={{
@@ -125,187 +252,260 @@ function ResearchPage() {
                   background: "#ffffff"
                 }}
                 title={
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
-                    <div style={{ background: "#e0f2fe", padding: "6px 10px", borderRadius: 8 }}>
-                      <FileTextOutlined style={{ color: "#0284c7", fontSize: 18 }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ background: "#e0f2fe", padding: "8px 12px", borderRadius: 10 }}>
+                        <BarChartOutlined style={{ color: "#0284c7", fontSize: 20 }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>1. เปรียบเทียบจำนวนผลงานวิจัยตีพิมพ์</div>
+                        <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>วิเคราะห์แนวโน้มจำแนกตามฐานข้อมูลและระดับการตีพิมพ์</div>
+                      </div>
                     </div>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>ผลงานวิจัย</div>
-                      <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>สถิติการตีพิมพ์ บทความวิจัย และรางวัล</div>
-                    </div>
+
+                    <Tag color="blue" style={{ fontSize: 13, padding: "4px 12px", borderRadius: 8, fontWeight: 600 }}>
+                      รวมตามเงื่อนไข: {totalFilteredResearchCount} เรื่อง
+                    </Tag>
                   </div>
                 }
               >
-                <Row gutter={[16, 16]}>
-                  {[
-                    { label: "จำนวนผลงานวิจัยทั้งหมด", val: researchData.totalResearch, unit: "เรื่อง" },
-                    { label: "สร้างผลกระทบทางเศรษฐกิจ สังคม และสิ่งแวดล้อม", val: researchData.impactResearch, unit: "เรื่อง" },
-                    { label: "อยู่ในวารสาร Q1 ของ Scopus", val: researchData.scopusQ1, unit: "เรื่อง", highlight: true },
-                    { label: "อยู่ในฐานข้อมูล Scopus ทั้งหมด", val: researchData.scopusTotal, unit: "เรื่อง" },
-                    { label: "ตีพิมพ์ในฐานข้อมูลระดับนานาชาติ", val: researchData.internationalPapers, unit: "เรื่อง" },
-                    { label: "ผลงานทางวิชาการที่ตีพิมพ์ทั้งหมด", val: researchData.totalPapers, unit: "เรื่อง" },
-                    { label: "อาจารย์/นักวิจัยที่ตีพิมพ์ระดับนานาชาติ", val: researchData.teachersWithIntPapers, unit: "คน" },
-                    { label: "ผลงานวิจัยที่ได้รับรางวัลระดับชาติ", val: researchData.nationalAwards, unit: "รางวัล" },
-                    { label: "ผลงานวิจัยที่ได้รับรางวัลระดับนานาชาติ", val: researchData.interAwards, unit: "รางวัล" },
-                  ].map((item, idx) => (
-                    <Col xs={24} sm={12} md={8} key={idx}>
-                      <div style={{
-                        background: item.highlight ? "#f0f9ff" : "#f8fafc",
-                        border: item.highlight ? "1px solid #bae6fd" : "1px solid #f1f5f9",
-                        borderRadius: 12,
-                        padding: "16px 20px"
+                {/* FILTER BAR */}
+                <div style={{ 
+                  background: "#f8fafc", 
+                  padding: "16px 20px", 
+                  borderRadius: 12, 
+                  marginBottom: 20,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  flexWrap: "wrap",
+                  border: "1px solid #e2e8f0"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#475569", fontWeight: 600, fontSize: 13 }}>
+                    <FilterOutlined style={{ color: "#0284c7" }} /> ตัวกรองข้อมูล:
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13, color: "#64748b" }}>ฐานข้อมูล / Scopus:</span>
+                    <AntSelect
+                      style={{ width: 160 }}
+                      value={scopusFilter}
+                      onChange={(val) => setScopusFilter(val)}
+                    >
+                      {scopusOptions.map(opt => (
+                        <AntSelect.Option key={opt} value={opt}>{opt}</AntSelect.Option>
+                      ))}
+                    </AntSelect>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13, color: "#64748b" }}>ระดับการตีพิมพ์:</span>
+                    <AntSelect
+                      style={{ width: 160 }}
+                      value={levelFilter}
+                      onChange={(val) => setLevelFilter(val)}
+                    >
+                      {levelOptions.map(opt => (
+                        <AntSelect.Option key={opt} value={opt}>{opt}</AntSelect.Option>
+                      ))}
+                    </AntSelect>
+                  </div>
+                </div>
+
+                {/* GRAPH AREA */}
+                <div style={{ height: 320, width: "100%" }}>
+                  {researchBarChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={researchBarChartData} margin={{ top: 25, right: 30, left: 0, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="year" tick={{ fontSize: 12, fill: "#64748b", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <RechartsTooltip contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }} formatter={(val) => [`${val} เรื่อง`, "จำนวนผลงานวิจัย"]} />
+                        <Bar dataKey="count" name="จำนวนผลงาน" radius={[8, 8, 0, 0]} barSize={40}>
+                          <LabelList dataKey="count" position="top" style={{ fill: "#0369a1", fontSize: 13, fontWeight: 700 }} formatter={(v) => v > 0 ? v : ""} />
+                          {researchBarChartData.map((entry, idx) => (
+                            <Cell key={`cell-${idx}`} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <Empty description="ไม่พบข้อมูลผลงานวิจัยตามเงื่อนไขที่เลือก" style={{ marginTop: 40 }} />
+                  )}
+                </div>
+              </Card>
+
+              {/* ทรัพย์สินทางปัญญา & โซนที่ 3 H-Index */}
+              <Row gutter={[24, 24]}>
+
+                {/* ทรัพย์สินทางปัญญา */}
+                <Col xs={24} lg={12}>
+                  <Card
+                    bordered={false}
+                    style={{
+                      borderRadius: 16,
+                      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
+                      background: "#ffffff",
+                      height: "100%"
+                    }}
+                    title={
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ background: "#fef3c7", padding: "8px 12px", borderRadius: 10 }}>
+                          <SafetyCertificateOutlined style={{ color: "#d97706", fontSize: 20 }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>2. ทรัพย์สินทางปัญญา</div>
+                          <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>สิทธิบัตร / อนุสิทธิบัตร ของคณะฯ</div>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      {/* STAT SUMMARY CARD */}
+                      <div style={{ 
+                        background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)", 
+                        border: "1px solid #fde68a", 
+                        borderRadius: 14, 
+                        padding: "16px 20px",
+                        display: "flex",
+                        alignItems: "center",
+                        justify: "space-between"
                       }}>
-                        <Statistic
-                          title={<span style={{ color: "#475569", fontSize: 13, fontWeight: 500 }}>{item.label}</span>}
-                          value={item.val}
-                          suffix={<span style={{ fontSize: 13, color: "#94a3b8" }}>{item.unit}</span>}
-                          valueStyle={{ color: "#142549", fontWeight: 700, fontSize: 24 }}
+                        <div>
+                          <div style={{ color: "#b45309", fontSize: 13, fontWeight: 600 }}>จำนวนทรัพย์สินทางปัญญารวมทั้งหมด</div>
+                          <div style={{ fontSize: 28, fontWeight: 800, color: "#d97706", marginTop: 2 }}>
+                            {ipSummary.total} <span style={{ fontSize: 13, fontWeight: 500, color: "#b45309" }}>รายการ</span>
+                          </div>
+                        </div>
+                        <TrophyOutlined style={{ fontSize: 40, color: "#f59e0b", opacity: 0.4 }} />
+                      </div>
+
+                      {/* DETAILS TABLE */}
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 8 }}>รายการจดทะเบียนทรัพย์สินทางปัญญา:</div>
+                        <Table
+                          dataSource={ipSummary.items}
+                          pagination={false}
+                          size="small"
+                          bordered
+                          columns={[
+                            { title: "ปีงบประมาณ", dataIndex: "year", key: "year", width: 100, align: "center", render: y => `ปี ${y}` },
+                            { title: "ประเภททรัพย์สินทางปัญญา", dataIndex: "type", key: "type" },
+                            { 
+                              title: "ระดับ", 
+                              dataIndex: "level", 
+                              key: "level", 
+                              align: "center", 
+                              width: 90,
+                              render: l => <Tag color="gold" style={{ borderRadius: 6, fontWeight: 600 }}>{l}</Tag> 
+                            },
+                            { 
+                              title: "จำนวน", 
+                              dataIndex: "count", 
+                              key: "count", 
+                              align: "center", 
+                              width: 80,
+                              render: c => <strong>{c} รายการ</strong> 
+                            },
+                          ]}
                         />
                       </div>
-                    </Col>
-                  ))}
+                    </div>
+                  </Card>
+                </Col>
 
-                  {/* Highlight Citations Cards */}
-                  <Col xs={24} sm={12}>
-                    <div style={{ background: "linear-gradient(135deg, #142549 0%, #1e3a8a 100%)", borderRadius: 12, padding: "18px 22px", color: "white" }}>
-                      <Statistic
-                        title={<span style={{ color: "#93c5fd", fontSize: 13, fontWeight: 500 }}>จำนวนการอ้างอิง (Cited) รอบ 6 ปีย้อนหลัง (Scopus)</span>}
-                        value={researchData.scopusCitations6Years}
-                        suffix={<span style={{ fontSize: 13, color: "#93c5fd" }}>ครั้ง</span>}
-                        valueStyle={{ color: "#ffffff", fontWeight: 700, fontSize: 26 }}
-                      />
-                    </div>
-                  </Col>
+                {/* H-index  */}
+                <Col xs={24} lg={12}>
+                  <Card
+                    bordered={false}
+                    style={{
+                      borderRadius: 16,
+                      boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
+                      background: "#ffffff",
+                      height: "100%"
+                    }}
+                    title={
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ background: "#f3e8ff", padding: "8px 12px", borderRadius: 10 }}>
+                            <PieChartOutlined style={{ color: "#9333ea", fontSize: 20 }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>3. สัดส่วน H-Index อาจารย์ประจำ</div>
+                            <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>จำแนกตามระดับ H-Index ของอาจารย์/นักวิจัย</div>
+                          </div>
+                        </div>
 
-                  <Col xs={24} sm={12}>
-                    <div style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)", borderRadius: 12, padding: "18px 22px", color: "white" }}>
-                      <Statistic
-                        title={<span style={{ color: "#cbd5e1", fontSize: 13, fontWeight: 500 }}>จำนวนบทความที่ถูกอ้างอิงย้อนหลัง 5 ปี (ไม่รวมปีรายงาน)</span>}
-                        value={researchData.citations5Years}
-                        suffix={<span style={{ fontSize: 13, color: "#cbd5e1" }}>บทความ</span>}
-                        valueStyle={{ color: "#ffffff", fontWeight: 700, fontSize: 26 }}
-                      />
-                    </div>
-                  </Col>
-                </Row>
-              </Card>
-
-              {/* โซน 2: โครงการวิจัย */}
-              <Card
-                bordered={false}
-                style={{
-                  borderRadius: 16,
-                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
-                  background: "#ffffff"
-                }}
-                title={
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
-                    <div style={{ background: "#dcfce7", padding: "6px 10px", borderRadius: 8 }}>
-                      <ExperimentOutlined style={{ color: "#16a34a", fontSize: 18 }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>โครงการวิจัย</div>
-                      <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>แหล่งทุนสนับสนุน และหน่วยงานภายนอก</div>
-                    </div>
-                  </div>
-                }
-              >
-                <Row gutter={[16, 16]}>
-                  {[
-                    { label: "จำนวนโครงการวิจัยทั้งหมด", val: researchData.totalProjects, unit: "โครงการ" },
-                    { label: "ได้รับทุนจากหน่วยงานนานาชาติ", val: researchData.interFundedProjects, unit: "โครงการ" },
-                    { label: "จำนวนโครงการวิจัยที่ได้รับทุน", val: researchData.fundedProjects, unit: "โครงการ" },
-                    { label: "จำนวนโครงการวิจัยที่เสนอขอรับทุน", val: researchData.requestedProjects, unit: "โครงการ" },
-                    { label: "หน่วยงานภายนอก (ในประเทศ) ที่ให้ทุนวิจัยซ้ำในรอบ 3 ปี", val: researchData.repeatLocalAgencies3Years, unit: "แห่ง" },
-                    { label: "หน่วยงานภายนอก (นอกประเทศ) ที่ให้ทุนวิจัยซ้ำในรอบ 3 ปี", val: researchData.repeatInterAgencies3Years, unit: "แห่ง" },
-                    { label: "หน่วยงานภายนอก (ในประเทศ) ที่ให้ทุนวิจัยทั้งหมดในรอบ 3 ปี", val: researchData.totalLocalAgencies3Years, unit: "แห่ง" },
-                    { label: "หน่วยงานภายนอก (นอกประเทศ) ที่ให้ทุนวิจัยทั้งหมดในรอบ 3 ปี", val: researchData.totalInterAgencies3Years, unit: "แห่ง" },
-                  ].map((item, idx) => (
-                    <Col xs={24} sm={12} md={6} key={idx}>
-                      <div style={{ background: "#f8fafc", border: "1px solid #f1f5f9", borderRadius: 12, padding: "16px" }}>
-                        <Statistic
-                          title={<span style={{ color: "#475569", fontSize: 12, fontWeight: 500 }}>{item.label}</span>}
-                          value={item.val}
-                          suffix={<span style={{ fontSize: 12, color: "#94a3b8" }}>{item.unit}</span>}
-                          valueStyle={{ color: "#142549", fontWeight: 700, fontSize: 22 }}
-                        />
+                        {/* SELECT FILTER YEAR */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 12, color: "#64748b" }}>ปี พ.ศ.:</span>
+                          <AntSelect
+                            style={{ width: 110 }}
+                            value={selectedHIndexYear}
+                            onChange={(val) => setSelectedHIndexYear(val)}
+                          >
+                            {hIndexYears.map(y => (
+                              <AntSelect.Option key={y} value={y}>พ.ศ. {y}</AntSelect.Option>
+                            ))}
+                          </AntSelect>
+                        </div>
                       </div>
-                    </Col>
-                  ))}
+                    }
+                  >
+                    {hIndexPieData.total > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div style={{ height: 220, width: "100%" }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={hIndexPieData.chartData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={50}
+                                outerRadius={80}
+                                paddingAngle={4}
+                                dataKey="value"
+                              >
+                                {hIndexPieData.chartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={HINDEX_COLORS[index % HINDEX_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip 
+                                formatter={(value) => [`${value} คน (${((value / hIndexPieData.total) * 100).toFixed(1)}%)`, "จำนวน"]} 
+                                contentStyle={{ borderRadius: 10, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                              />
+                              <Legend verticalAlign="bottom" height={36} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
 
-                  {/* Fund Amount Cards */}
-                  <Col xs={24} sm={12}>
-                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "18px 22px" }}>
-                      <Statistic
-                        title={<span style={{ color: "#166534", fontSize: 13, fontWeight: 600 }}>ทุนสนับสนุนการวิจัยภายในที่ได้รับ</span>}
-                        value={researchData.internalFunding}
-                        prefix="฿"
-                        precision={2}
-                        valueStyle={{ color: "#15803d", fontWeight: 700, fontSize: 26 }}
-                      />
-                    </div>
-                  </Col>
-
-                  <Col xs={24} sm={12}>
-                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "18px 22px" }}>
-                      <Statistic
-                        title={<span style={{ color: "#166534", fontSize: 13, fontWeight: 600 }}>ทุนสนับสนุนการวิจัยภายนอกที่ได้รับ</span>}
-                        value={researchData.externalFunding}
-                        prefix="฿"
-                        precision={2}
-                        valueStyle={{ color: "#15803d", fontWeight: 700, fontSize: 26 }}
-                      />
-                    </div>
-                  </Col>
-                </Row>
-              </Card>
-
-              {/* โซน 3: H-index */}
-              <Card
-                bordered={false}
-                style={{
-                  borderRadius: 16,
-                  boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
-                  background: "#ffffff"
-                }}
-                title={
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0" }}>
-                    <div style={{ background: "#f3e8ff", padding: "6px 10px", borderRadius: 8 }}>
-                      <TrophyOutlined style={{ color: "#9333ea", fontSize: 18 }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>H-index</div>
-                      <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>จำแนกตามระดับ H-index ของอาจารย์ประจำและนักวิจัย</div>
-                    </div>
-                  </div>
-                }
-              >
-                <Row gutter={[16, 16]}>
-                  {[
-                    { label: "ค่า H-index เท่ากับ 0", val: researchData.hIndex0, color: "#8b00a7" },
-                    { label: "ค่า H-index เท่ากับ 1 - 5", val: researchData.hIndex1_5, color: "#8b00a7" },
-                    { label: "ค่า H-index เท่ากับ 6 - 10", val: researchData.hIndex6_10, color: "#8b00a7" },
-                    { label: "ค่า H-index มากกว่า 10", val: researchData.hIndexAbove10, color: "#8b00a7" },
-                  ].map((item, idx) => (
-                    <Col xs={24} sm={12} md={6} key={idx}>
-                      <div style={{
-                        background: "#faf5ff",
-                        border: "1px solid #f3e8ff",
-                        borderRadius: 12,
-                        padding: "20px 16px",
-                        textAlign: "center"
-                      }}>
-                        <div style={{ color: "#6b21a8", fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{item.label}</div>
-                        <Statistic
-                          value={item.val}
-                          suffix={<span style={{ fontSize: 14, color: "#a855f7" }}>คน</span>}
-                          valueStyle={{ color: item.color, fontWeight: 800, fontSize: 30 }}
-                        />
+                        {/* SUMMARY STATS UNDER PIE */}
+                        <Row gutter={16} style={{ width: "100%", marginTop: 4 }}>
+                          <Col span={12}>
+                            <div style={{ background: "#faf5ff", border: "1px solid #f3e8ff", borderRadius: 12, padding: "10px", textAlign: "center" }}>
+                              <div style={{ fontSize: 12, color: "#6b21a8", fontWeight: 600 }}>H-Index ≥ 1</div>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: "#8b5cf6" }}>
+                                {hIndexPieData.ge1} <span style={{ fontSize: 12, color: "#a855f7", fontWeight: 500 }}>คน</span>
+                              </div>
+                            </div>
+                          </Col>
+                          <Col span={12}>
+                            <div style={{ background: "#fdf2f8", border: "1px solid #fbcfe8", borderRadius: 12, padding: "10px", textAlign: "center" }}>
+                              <div style={{ fontSize: 12, color: "#9d174d", fontWeight: 600 }}>H-Index &lt; 1</div>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: "#ec4899" }}>
+                                {hIndexPieData.lt1} <span style={{ fontSize: 12, color: "#f472b6", fontWeight: 500 }}>คน</span>
+                              </div>
+                            </div>
+                          </Col>
+                        </Row>
                       </div>
-                    </Col>
-                  ))}
-                </Row>
-              </Card>
+                    ) : (
+                      <Empty description="ไม่พบข้อมูล H-index ในปีที่เลือก" style={{ marginTop: 40 }} />
+                    )}
+                  </Card>
+                </Col>
+
+              </Row>
 
             </div>
           )}
