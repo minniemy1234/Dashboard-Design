@@ -35,12 +35,28 @@ const EXTRA_MAJORS = [
   "วท.ม.เทคโนโลยีเคมีประยุกต์"
 ];
 
-// ❌ รายการสาขาวิชาที่ต้องการตัดออกจากฟิลเตอร์และกราฟ
-const EXCLUDED_MAJORS = [
-  "เทคโนโลยีสารสนเทศ",
-  "เทคโนโลยีสารสนเทศภาคพิเศษ",
-  "เคมี"
-];
+// 🔹 ฟังก์ชั่นดึงค่าคอลัมน์จาก Key ของ Object (ลบ space หน้า-หลัง ให้อัตโนมัติ)
+const getCleanItemValue = (item, keyNames) => {
+  if (!item || typeof item !== "object") return null;
+  
+  const cleanedItem = {};
+  try {
+    Object.keys(item).forEach((k) => {
+      if (k !== null && k !== undefined) {
+        cleanedItem[String(k).trim()] = item[k];
+      }
+    });
+  } catch (e) {
+    console.error("Key clean error:", e);
+  }
+
+  for (const name of keyNames) {
+    if (cleanedItem[name] !== undefined && cleanedItem[name] !== null && cleanedItem[name] !== "") {
+      return cleanedItem[name];
+    }
+  }
+  return null;
+};
 
 function Dashboard() {
   // State ของ Main Filter
@@ -122,12 +138,19 @@ function Dashboard() {
     else if (name.startsWith("สาขา")) name = name.replace("สาขา", "").trim();
     else if (name.startsWith("หลักสูตร")) name = name.replace("หลักสูตร", "").trim();
 
-    name = name.replace(/\(ภาคปกติ\)/g, "").replace(/ภาคปกติ/g, "").trim();
+    name = name
+      .replace(/\(ภาคปกติ\)/g, "")
+      .replace(/ภาคปกติ/g, "")
+      .replace(/\(ภาคพิเศษ\)/g, "")
+      .replace(/ภาคพิเศษ/g, "")
+      .trim();
 
     if (name.includes("วิทยาการคอมพิวเตอร์")) {
       name = "วิทยาการคอมพิวเตอร์";
     }
-
+    if (name.includes("เทคโนโลยีสารสนเทศ")) {
+      name = "เทคโนโลยีสารสนเทศ";
+    }
     if (name.includes("วิทยาการและเทคโนโลยีดิจิทัล")) {
       name = "วิทยาการและเทคโนโลยีดิจิทัล";
     }
@@ -157,18 +180,32 @@ function Dashboard() {
     return dashboardData["student_retain"] || dashboardData["นิสิตคงอยู่"] || dashboardData["ข้อมูลนิสิตคงอยู่"] || dashboardData["จำนวนนิสิตคงอยู่"] || dashboardData["student_retain_data"] || [];
   }, [dashboardData]);
 
-  const graduatesList = useMemo(() => {
+  // 🔹 ดึงข้อมูลภาวะการมีงานทำแบบล็อกเฉพาะ Key แรกที่พบ
+  const employmentList = useMemo(() => {
     if (!dashboardData || Object.keys(dashboardData).length === 0) return [];
-    return dashboardData["ผู้สำเร็จการศึกษา"] || dashboardData["สำเร็จการศึกษา"] || dashboardData["graduates"] || dashboardData["student_graduated"] || [];
+    
+    if (dashboardData["ภาวะการมีงานทำ"] && Array.isArray(dashboardData["ภาวะการมีงานทำ"]) && dashboardData["ภาวะการมีงานทำ"].length > 0) {
+      return dashboardData["ภาวะการมีงานทำ"];
+    }
+    if (dashboardData["ข้อมูลภาวะการมีงานทำ"] && Array.isArray(dashboardData["ข้อมูลภาวะการมีงานทำ"]) && dashboardData["ข้อมูลภาวะการมีงานทำ"].length > 0) {
+      return dashboardData["ข้อมูลภาวะการมีงานทำ"];
+    }
+    if (dashboardData["employment_status"] && Array.isArray(dashboardData["employment_status"]) && dashboardData["employment_status"].length > 0) {
+      return dashboardData["employment_status"];
+    }
+    if (dashboardData["ผู้สำเร็จการศึกษา"] && Array.isArray(dashboardData["ผู้สำเร็จการศึกษา"]) && dashboardData["ผู้สำเร็จการศึกษา"].length > 0) {
+      return dashboardData["ผู้สำเร็จการศึกษา"];
+    }
+    return dashboardData["graduates"] || [];
   }, [dashboardData]);
 
   const entryYears = useMemo(() => {
-    const list = retain.map(item => extractYear(item["ปีการศึกษาที่รับเข้า"] || item["ปีการศึกษา"]));
+    const list = retain.map(item => extractYear(getCleanItemValue(item, ["ปีการศึกษาที่รับเข้า", "ปีการศึกษา"])));
     return [...new Set(list)].filter(Boolean).sort().reverse();
   }, [retain]);
 
   const surveyYears = useMemo(() => {
-    const list = retain.map(item => extractYear(item["ปีที่สำรวจ"]));
+    const list = retain.map(item => extractYear(getCleanItemValue(item, ["ปีที่สำรวจ"])));
     return [...new Set(list)].filter(Boolean).sort().reverse();
   }, [retain]);
 
@@ -182,22 +219,38 @@ function Dashboard() {
   }, [entryYears, surveyYears, graphEntryYear, graphSurveyYear]);
 
   const yearsOptions = useMemo(() => {
-    const retainYears = retain.map((item) => extractYear(item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"]));
+    const retainYears = retain.map((item) => extractYear(getCleanItemValue(item, ["ปีที่สำรวจ", "ปีการศึกษาที่รับเข้า"])));
     return [...new Set(retainYears)].filter(Boolean).sort();
   }, [retain]);
 
   const majorsOptions = useMemo(() => {
     if (retain.length === 0) return [];
-    const rawMajors = retain.map(item => cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]));
+    const rawMajors = retain.map(item => cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"])));
     const combined = [...new Set([...rawMajors, ...EXTRA_MAJORS])].filter(Boolean);
 
-    const filteredCombined = combined.filter(m => !EXCLUDED_MAJORS.includes(m));
-
-    const bachelorMajors = filteredCombined.filter(m => !isMasterOrXMajor(m)).sort();
-    const masterMajors = filteredCombined.filter(m => isMasterOrXMajor(m)).sort();
+    const bachelorMajors = combined.filter(m => !isMasterOrXMajor(m)).sort();
+    const masterMajors = combined.filter(m => isMasterOrXMajor(m)).sort();
 
     return [...bachelorMajors, ...masterMajors];
   }, [retain]);
+
+  const latestYearProgramsCount = useMemo(() => {
+    if (retain.length === 0 || yearsOptions.length === 0) return majorsOptions.length;
+    
+    const sortedYears = [...yearsOptions].sort((a, b) => Number(b) - Number(a));
+    const latestYear = sortedYears[0];
+
+    const latestYearMajors = retain
+      .filter(item => {
+        const itemYear = extractYear(getCleanItemValue(item, ["ปีที่สำรวจ", "ปีการศึกษาที่รับเข้า"]));
+        return itemYear === latestYear;
+      })
+      .map(item => cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"])))
+      .filter(Boolean);
+
+    const uniqueLatestMajors = new Set(latestYearMajors);
+    return uniqueLatestMajors.size > 0 ? uniqueLatestMajors.size : majorsOptions.length;
+  }, [retain, yearsOptions, majorsOptions]);
 
   const handleSelectAllYears = (shouldSelectAll) => {
     setSelectedYears(shouldSelectAll ? yearsOptions : []);
@@ -224,17 +277,17 @@ function Dashboard() {
     });
 
     retain.forEach(item => {
-      const itemEntryYear = extractYear(item["ปีการศึกษาที่รับเข้า"] || item["ปีการศึกษา"]);
-      const itemSurveyYear = extractYear(item["ปีที่สำรวจ"]);
+      const itemEntryYear = extractYear(getCleanItemValue(item, ["ปีการศึกษาที่รับเข้า", "ปีการศึกษา"]));
+      const itemSurveyYear = extractYear(getCleanItemValue(item, ["ปีที่สำรวจ"]));
 
       if (itemEntryYear !== graphEntryYear || itemSurveyYear !== graphSurveyYear) return;
 
-      const rawName = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-      if (!rawName || EXCLUDED_MAJORS.includes(rawName)) return;
+      const rawName = cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"]));
+      if (!rawName) return;
 
       const majorKey = cleanString(rawName);
-      const term = String(item["ภาคเรียน"] || item["ภาคการศึกษา"] || "").trim();
-      const amt = Number(item["จำนวน"] || item["รวม"] || 0);
+      const term = String(getCleanItemValue(item, ["ภาคเรียน", "ภาคการศึกษา"]) || "").trim();
+      const amt = Number(getCleanItemValue(item, ["จำนวน", "รวม"]) || 0);
 
       if (!grouped[majorKey]) {
         grouped[majorKey] = { name: rawName, earlyTerm: 0, lateTerm: 0 };
@@ -259,7 +312,7 @@ function Dashboard() {
       .sort((a, b) => (b.earlyTerm + b.lateTerm) - (a.earlyTerm + a.lateTerm));
   }, [rawGraphData]);
 
-  // 🔹 คำนวณสรุปข้อมูล KPI (ปรับคำนวณผู้สำเร็จการศึกษาย้อนหลัง 4 ปี)
+  // 🔹 คำนวณสรุปข้อมูล KPI
   const studentBreakdown = useMemo(() => {
     let admitted = 0;
     let retained = 0;
@@ -267,7 +320,7 @@ function Dashboard() {
     let bachelorRetained = 0;
     let masterAdmitted = 0;
     let masterRetained = 0;
-    let lecturers = 99;
+    let lecturers = 66;
     let graduates = 0;
 
     if (dashboardData && Object.keys(dashboardData).length > 0) {
@@ -278,18 +331,16 @@ function Dashboard() {
         dashboardData["อาจารย์ประจำสาขา"] ||
         [];
 
-      const isAllYearsSelected = appliedFilters.years.length === 0 || appliedFilters.years.length === yearsOptions.length;
-      const isAllMajorsSelected = appliedFilters.majors.length === 0 || appliedFilters.majors.length === majorsOptions.length;
+      const isAllYearsSelected = appliedFilters.years.length === 0;
+      const isAllMajorsSelected = appliedFilters.majors.length === 0;
 
       // คำนวณนิสิตคงอยู่
       retain.forEach((item) => {
-        const retMajorClean = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-        if (EXCLUDED_MAJORS.includes(retMajorClean)) return;
-
-        const retYear = extractYear(item["ปีที่สำรวจ"] || item["ปีการศึกษาที่รับเข้า"]);
-        const retTerm = String(item["ภาคเรียน"] || item["ภาคการศึกษา"] || "").trim();
-        const amt = Number(item["จำนวน"] || item["รวม"] || 0);
-        const code = String(item["รหัสสาขา"] || "").trim().toUpperCase();
+        const retMajorClean = cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"]));
+        const retYear = extractYear(getCleanItemValue(item, ["ปีที่สำรวจ", "ปีการศึกษาที่รับเข้า"]));
+        const retTerm = String(getCleanItemValue(item, ["ภาคเรียน", "ภาคการศึกษา"]) || "").trim();
+        const amt = Number(getCleanItemValue(item, ["จำนวน", "รวม"]) || 0);
+        const code = String(getCleanItemValue(item, ["รหัสสาขา"]) || "").trim().toUpperCase();
 
         const yearMatch = isAllYearsSelected || appliedFilters.years.includes(retYear);
         const majorMatch = isAllMajorsSelected || appliedFilters.majors.includes(retMajorClean);
@@ -310,29 +361,44 @@ function Dashboard() {
         }
       });
 
-      // 🔹 ดึงข้อมูลปีการศึกษา 4 ปีล่าสุดสำหรับผู้สำเร็จการศึกษา
-      const sortedYears = [...yearsOptions].sort((a, b) => Number(b) - Number(a));
-      const last4Years = sortedYears.slice(0, 4);
+      // 🎯 คำนวณผู้สำเร็จการศึกษา: ใช้ Set ดักจับ Unique Key (สาขา + ปี) ป้องกันข้อมูลซ้ำซ้อนในฐานข้อมูล
+      const trackedRowKeys = new Set();
+      let directGradSum = 0;
 
-      // คำนวณผู้สำเร็จการศึกษา (ย้อนหลัง 4 ปี)
-      const gradDataSource = (Array.isArray(graduatesList) && graduatesList.length > 0) ? graduatesList : retain;
+      if (Array.isArray(employmentList)) {
+        employmentList.forEach((item) => {
+          const rawMajor = getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"]);
+          const cleanName = String(rawMajor || "").trim();
 
-      gradDataSource.forEach((item) => {
-        const gradMajorClean = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-        if (EXCLUDED_MAJORS.includes(gradMajorClean)) return;
+          // ข้ามแถวที่ไม่มีข้อมูล หรือแถวรวม
+          if (!cleanName || cleanName.includes("รวม") || cleanName.includes("จำนวน") || cleanName === "-") {
+            return;
+          }
 
-        const gradYear = extractYear(item["ปีการศึกษา"] || item["ปีสำเร็จการศึกษา"] || item["ปีที่สำเร็จ"] || item["ปีการศึกษาที่รับเข้า"] || item["ปีที่สำรวจ"]);
-        const amt = Number(item["จำนวน"] || item["จำนวนนิสิต"] || item["รวม"] || 0);
+          const gradMajorClean = cleanMajorName(rawMajor);
+          const rawYear = getCleanItemValue(item, ["ปีการศึกษา", "ปีสำเร็จการศึกษา", "ปีที่สำเร็จ", "ปีการศึกษาที่รับเข้า", "ปีที่สำรวจ"]);
+          const gradYear = extractYear(rawYear);
 
-        // เช็กปีการศึกษาย้อนหลัง 4 ปี
-        const in4Years = last4Years.length > 0 ? last4Years.includes(gradYear) : true;
-        const yearMatch = isAllYearsSelected ? in4Years : (appliedFilters.years.includes(gradYear) && in4Years);
-        const majorMatch = isAllMajorsSelected || appliedFilters.majors.includes(gradMajorClean);
+          // 🛑 ล็อกแถว: ถ้าสาขา X ในปี Y ถูกนับไปแล้ว จะไม่นำมารวมซ้ำ
+          const rowKey = `${gradMajorClean}_${gradYear}`;
+          if (trackedRowKeys.has(rowKey)) {
+            return;
+          }
 
-        if (majorMatch && yearMatch) {
-          graduates += amt;
-        }
-      });
+          const rawAmt = getCleanItemValue(item, ["ผู้สำเร็จการศึกษา", "จำนวนผู้สำเร็จการศึกษา"]);
+          const amt = Number(rawAmt || 0);
+
+          const yearMatch = isAllYearsSelected || appliedFilters.years.includes(gradYear);
+          const majorMatch = isAllMajorsSelected || appliedFilters.majors.includes(gradMajorClean);
+
+          if (majorMatch && yearMatch && amt > 0) {
+            directGradSum += amt;
+            trackedRowKeys.add(rowKey);
+          }
+        });
+      }
+
+      graduates = directGradSum;
 
       // คำนวณบุคลากร
       if (Array.isArray(teacher) && teacher.length > 0) {
@@ -341,11 +407,8 @@ function Dashboard() {
         );
 
         const validTeachers = teacher.filter(item => {
-          const rawTeacherMajor = cleanMajorName(item["ชื่อสาขา"] || item["สาขาวิชา"] || item["สาขา"]);
-
-          if (EXCLUDED_MAJORS.includes(rawTeacherMajor)) return false;
-
-          const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "";
+          const rawTeacherMajor = cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"]));
+          const name = getCleanItemValue(item, ["ชื่อ นามสกุล", "ชื่อ-นามสกุล", "ชื่ออาจารย์", "ชื่อ"]) || "";
           const cleanName = String(name).trim();
 
           const majorMatch = isAllMajorsSelected || selectedBaseMajors.has(rawTeacherMajor);
@@ -356,7 +419,7 @@ function Dashboard() {
 
         const uniqueTeacherNames = new Set(
           validTeachers.map(item => {
-            const name = item["ชื่อ นามสกุล"] || item["ชื่อ-นามสกุล"] || item["ชื่ออาจารย์"] || item["ชื่อ"] || "";
+            const name = getCleanItemValue(item, ["ชื่อ นามสกุล", "ชื่อ-นามสกุล", "ชื่ออาจารย์", "ชื่อ"]) || "";
             return String(name).replace(/\s+/g, '').trim();
           })
         );
@@ -377,7 +440,7 @@ function Dashboard() {
       lecturers,
       graduates
     };
-  }, [dashboardData, retain, graduatesList, appliedFilters, yearsOptions, majorsOptions]);
+  }, [dashboardData, retain, employmentList, appliedFilters]);
 
   const renderMajorTag = (props) => {
     const { label, value, closable, onClose } = props;
@@ -425,10 +488,9 @@ function Dashboard() {
       <Sidebar />
       <Layout style={{ background: "#f8fafc" }}>
 
-        {/* MODERN HEADER */}
         <Header style={{ 
           background: "#ffffff", 
-          padding: "16px 32px", 
+          padding: "14px 32px", 
           height: "auto", 
           display: "flex", 
           justifyContent: "space-between", 
@@ -436,17 +498,18 @@ function Dashboard() {
           borderBottom: "1px solid #e2e8f0",
           boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)"
         }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "800", color: "#0f172a" }}>
-                Faculty Analytics Dashboard
+         
+          <div style={{ display: "flex", flexDirection: "column", gap: "0px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0px" }}>
+              <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "800", color: "#0f172a", lineHeight: "1.2" }}>
+                ระบบสารสนเทศด้านการศึกษาเพื่อการบริหารและพัฒนาคณะวิทยาศาสตร์ ศรีราชา
               </h1>
               <Tag color="blue" style={{ borderRadius: "12px", padding: "1px 10px", fontWeight: "600" }}>
                 คณะวิทยาศาสตร์ ศรีราชา
               </Tag>
             </div>
-            <p style={{ color: "#64748b", fontSize: "13px", margin: 0 }}>
-              ระบบสารสนเทศนวัตกรรมเพื่อขับเคลื่อนองค์กรสู่ความเป็นเลิศ (Information System for Excellence)
+            <p style={{ color: "#64748b", fontSize: "13px", margin: "2px 0 0 0", lineHeight: "1.2" }}>
+             [Education Management Information System (EMIS) for Faculty of Science, Sriracha]
             </p>
           </div>
 
@@ -464,7 +527,7 @@ function Dashboard() {
 
         <Content style={{ padding: "28px 32px", maxWidth: "1600px", margin: "0 auto", width: "100%" }}>
 
-          {/* FILTER CARD ZONE */}
+          
           <div style={{ 
             background: "#ffffff", 
             padding: "24px", 
@@ -552,7 +615,6 @@ function Dashboard() {
                 </Select>
               </Col>
 
-              
               <Col xs={24} lg={4}>
                 <Button 
                   type="primary" 
@@ -582,7 +644,7 @@ function Dashboard() {
             </Card>
           ) : (
             <>
-              {/* 🏆 PROMINENT TOP KPI CARDS ZONE */}
+              {/*  PROMINENT TOP KPI CARDS ZONE */}
               <div style={{ marginBottom: "32px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
                   <h2 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -591,7 +653,7 @@ function Dashboard() {
                 </div>
 
                 <Row gutter={[20, 20]}>
-                  {/* KPI 1: จำนวนหลักสูตร */}
+                  {/* KPI 1: จำนวนหลักสูตร (คำนวณจากปีล่าสุด) */}
                   <Col xs={24} sm={12} lg={6}>
                     <div style={{ 
                       background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)", 
@@ -606,12 +668,12 @@ function Dashboard() {
                       justifyContent: "space-between"
                     }}>
                       <div style={{ minHeight: "44px" }}>
-                        <div style={{ color: "#bae6fd", fontSize: "12px", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase" }}>TOTAL PROGRAMS</div>
-                        <h3 style={{ margin: "2px 0 0 0", fontSize: "15px", color: "#f0f9ff", fontWeight: "500", lineHeight: "1.3" }}>หลักสูตรทั้งหมด</h3>
+                        <div style={{ color: "#bae6fd", fontSize: "12px", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase" }}>TOTAL PROGRAMS (LATEST YEAR)</div>
+                        <h3 style={{ margin: "2px 0 0 0", fontSize: "15px", color: "#f0f9ff", fontWeight: "500", lineHeight: "1.3" }}>หลักสูตรทั้งหมด (ปีล่าสุด)</h3>
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline" }}>
                         <span style={{ fontSize: "32px", fontWeight: "800", color: "#ffffff", lineHeight: "1" }}>
-                          {majorsOptions.length.toLocaleString()}
+                          {latestYearProgramsCount.toLocaleString()}
                         </span>
                         <span style={{ fontSize: "14px", fontWeight: "500", color: "#e0f2fe", marginLeft: "8px" }}>หลักสูตร</span>
                       </div>
@@ -647,7 +709,7 @@ function Dashboard() {
                     </div>
                   </Col>
 
-                  {/* 🔹 KPI 3: ผู้สำเร็จการศึกษา (ปรับปรุงแสดงย้อนหลัง 4 ปี) */}
+                  {/* KPI 3: ผู้สำเร็จการศึกษา */}
                   <Col xs={24} sm={12} lg={6}>
                     <div style={{ 
                       background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", 
@@ -662,8 +724,8 @@ function Dashboard() {
                       justifyContent: "space-between"
                     }}>
                       <div style={{ minHeight: "44px" }}>
-                        <div style={{ color: "#ddd6fe", fontSize: "12px", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase" }}>GRADUATES (4 YRS)</div>
-                        <h3 style={{ margin: "2px 0 0 0", fontSize: "15px", color: "#f5f3ff", fontWeight: "500", lineHeight: "1.3" }}>ผู้สำเร็จการศึกษา (ย้อนหลัง 4 ปี)</h3>
+                        <div style={{ color: "#ddd6fe", fontSize: "12px", fontWeight: "700", letterSpacing: "0.05em", textTransform: "uppercase" }}>GRADUATES / EMPLOYMENT</div>
+                        <h3 style={{ margin: "2px 0 0 0", fontSize: "15px", color: "#f5f3ff", fontWeight: "500", lineHeight: "1.3" }}>ผู้สำเร็จการศึกษา</h3>
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline" }}>
                         <span style={{ fontSize: "32px", fontWeight: "800", color: "#ffffff", lineHeight: "1" }}>
@@ -705,7 +767,7 @@ function Dashboard() {
                 </Row>
               </div>
 
-              {/* 📊 GRAPH SECTION PANEL (GROUPED SIDE-BY-SIDE BAR CHART) */}
+              {/*  GRAPH SECTION PANEL */}
               <div style={{ marginTop: "32px" }}>
                 <Card 
                   style={{ borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
@@ -742,7 +804,7 @@ function Dashboard() {
                     </div>
                   }
                 >
-                  {/* 🎓 กราฟระดับปริญญาตรี */}
+                  {/*  กราฟระดับปริญญาตรี */}
                   <div style={{ marginBottom: "36px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>
                       <span style={{ display: "inline-block", width: "4px", height: "16px", backgroundColor: "#0ea5e9", borderRadius: "2px" }}></span>
@@ -805,7 +867,7 @@ function Dashboard() {
                     )}
                   </div>
 
-                  {/* 🎓 กราฟระดับปริญญาโท */}
+                  {/* กราฟระดับปริญญาโท */}
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>
                       <span style={{ display: "inline-block", width: "4px", height: "16px", backgroundColor: "#8b5cf6", borderRadius: "2px" }}></span>
