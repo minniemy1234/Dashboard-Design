@@ -64,10 +64,23 @@ function UploadPage() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
+  // 🔹 ดักจับชื่อไฟล์ Upskill / Reskill และไฟล์วิจัยทั้ง 3 ประเภทให้แยกคีย์ชัดเจน
   const guessTableFromFilename = (filename) => {
     if (!filename) return "";
     const name = filename.toLowerCase();
 
+    if (name.includes("upskill") || name.includes("reskill")) {
+      return "ข้อมูลวิจัย(Upskill)";
+    }
+    if (name.includes("ผลงานวิจัย")) {
+      return "ข้อมูลวิจัย(จำนวนผลงานวิจัย)";
+    }
+    if (name.includes("ทรัพย์สินทางปัญญา")) {
+      return "ข้อมูลวิจัย(จำนวนทรัพย์สินทางปัญญา)";
+    }
+    if (name.includes("h-index") || name.includes("h_index") || name.includes("hindex")) {
+      return "ข้อมูลวิจัย(ค่า H-Index)";
+    }
     if (name.includes("อาจารย์") || name.includes("faculty") || name.includes("teacher")) {
       return "ข้อมูลอาจารย์";
     }
@@ -80,14 +93,14 @@ function UploadPage() {
     if (name.includes("คงอยู่") || name.includes("retain") || name.includes("นิสิต")) {
       return "จำนวนนิสิตคงอยู่"; 
     }
-    if (name.includes("วิจัย") || name.includes("research")) {
-      return "ข้อมูลวิจัย";
-    }
     if (name.includes("ประเมินคุณภาพหลักสูตร") || name.includes("ประเมินหลักสูตร")) {
       return "ข้อมูลผลการประเมินคุณภาพหลักสูตร";
     }
     if (name.includes("ประเมินคุณภาพบัณฑิต") || name.includes("ประเมินบัณฑิต") || name.includes("eval")) {
       return "ข้อมูลผลการประเมินคุณภาพบัณฑิต";
+    }
+    if (name.includes("วิจัย") || name.includes("research")) {
+      return "ข้อมูลวิจัย";
     }
     return name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]/g, "_");
   };
@@ -199,7 +212,6 @@ function UploadPage() {
     });
   };
 
-  // Helper Functions สำหรับ Crop รูปภาพ
   const createImage = (url) =>
     new Promise((resolve, reject) => {
       const image = new Image();
@@ -330,8 +342,16 @@ function UploadPage() {
             let headerIndex = 0;
             for (let i = 0; i < Math.min(lines.length, 10); i++) {
               const parsed = parseCSVLine(lines[i]);
+              // หาแถวหัวตารางที่มีคอลัมน์ข้อมูลอย่างน้อย 2 ช่อง (ข้ามแถวชื่อหัวข้อใหญ่ที่อยู่บรรทัดแรก)
               if (parsed.filter((x) => x !== "").length >= 2) {
                 headerIndex = i;
+                // ถ้าบรรทัดถัดไปเป็นหัวตารางภาษาไทย (เช่น ปี พ.ศ., จำนวนโครงการ) ให้ใช้บรรทัดถัดไปเป็น Header
+                if (i + 1 < lines.length) {
+                  const nextParsed = parseCSVLine(lines[i + 1]);
+                  if (nextParsed.some((col) => col.includes("ปี พ.ศ.") || col.includes("จำนวนโครงการ") || col.includes("รายได้"))) {
+                    headerIndex = i + 1;
+                  }
+                }
                 break;
               }
             }
@@ -367,6 +387,7 @@ function UploadPage() {
     }
   };
 
+  // 🔹 ระบบสะสมและแยกคีย์ข้อมูล ไม่ให้เขียนทับไฟล์อื่น
   const handleConfirmUpload = () => {
     if (!previewData || !targetTableName) return;
 
@@ -376,33 +397,61 @@ function UploadPage() {
         const stored = localStorage.getItem("dashboardData");
         const dashboard = stored ? JSON.parse(stored) : {};
 
+        const appendRowsWithoutDuplicate = (existingRows = [], newRows = []) => {
+          if (!Array.isArray(existingRows)) existingRows = [];
+          if (!Array.isArray(newRows)) newRows = [];
+
+          const combined = [...existingRows, ...newRows];
+          const uniqueMap = new Map();
+
+          combined.forEach((row) => {
+            const rowStringKey = JSON.stringify(row);
+            if (!uniqueMap.has(rowStringKey)) {
+              uniqueMap.set(rowStringKey, row);
+            }
+          });
+
+          return Array.from(uniqueMap.values());
+        };
+
         if (parsedSheetsData) {
           Object.keys(parsedSheetsData).forEach((sheetName) => {
-            const rows = parsedSheetsData[sheetName];
+            const newRows = parsedSheetsData[sheetName];
             const sName = sheetName.trim();
+            const sLower = sName.toLowerCase();
 
-            dashboard[sName] = rows;
+            dashboard[sName] = appendRowsWithoutDuplicate(dashboard[sName], newRows);
 
-            if (sName.includes("อาจารย์") || sName.includes("faculty")) {
-              dashboard["ข้อมูลอาจารย์"] = rows;
-              dashboard["อาจารย์"] = rows;
-              dashboard["อาจารย์สาขา"] = rows;
+            if (sLower.includes("upskill") || sLower.includes("reskill")) {
+              dashboard["ข้อมูลวิจัย(Upskill)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(Upskill)"], newRows);
+              dashboard["ข้อมูล Upskill-Reskill"] = appendRowsWithoutDuplicate(dashboard["ข้อมูล Upskill-Reskill"], newRows);
+            } else if (sName.includes("ผลงานวิจัย")) {
+              dashboard["ข้อมูลวิจัย(จำนวนผลงานวิจัย)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(จำนวนผลงานวิจัย)"], newRows);
+              dashboard["จำนวนผลงานวิจัย"] = appendRowsWithoutDuplicate(dashboard["จำนวนผลงานวิจัย"], newRows);
+            } else if (sName.includes("ทรัพย์สินทางปัญญา")) {
+              dashboard["ข้อมูลวิจัย(จำนวนทรัพย์สินทางปัญญา)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(จำนวนทรัพย์สินทางปัญญา)"], newRows);
+              dashboard["จำนวนทรัพย์สินทางปัญญา"] = appendRowsWithoutDuplicate(dashboard["จำนวนทรัพย์สินทางปัญญา"], newRows);
+            } else if (sLower.includes("h-index") || sLower.includes("h_index") || sLower.includes("hindex")) {
+              dashboard["ข้อมูลวิจัย(ค่า H-Index)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(ค่า H-Index)"], newRows);
+              dashboard["ค่า H-Index"] = appendRowsWithoutDuplicate(dashboard["ค่า H-Index"], newRows);
+            } else if (sName.includes("อาจารย์") || sLower.includes("faculty")) {
+              dashboard["ข้อมูลอาจารย์"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลอาจารย์"], newRows);
+              dashboard["อาจารย์"] = appendRowsWithoutDuplicate(dashboard["อาจารย์"], newRows);
+              dashboard["อาจารย์สาขา"] = appendRowsWithoutDuplicate(dashboard["อาจารย์สาขา"], newRows);
             } else if (sName.includes("งานทำ") || sName.includes("ภาวะการมีงานทำ")) {
-              dashboard["ข้อมูลภาวะการมีงานทำ"] = rows;
-              dashboard["ภาวะการมีงานทำ"] = rows;
-            } else if (sName.includes("วิจัย") || sName.includes("research")) {
-              dashboard["ข้อมูลวิจัย"] = rows;
-              dashboard["วิจัย"] = rows;
+              dashboard["ข้อมูลภาวะการมีงานทำ"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลภาวะการมีงานทำ"], newRows);
+              dashboard["ภาวะการมีงานทำ"] = appendRowsWithoutDuplicate(dashboard["ภาวะการมีงานทำ"], newRows);
             } else if (sName.includes("ประเมินคุณภาพหลักสูตร") || sName.includes("ประเมินหลักสูตร")) {
-              dashboard["ข้อมูลผลการประเมินคุณภาพหลักสูตร"] = rows;
-              dashboard["ผลการประเมินคุณภาพหลักสูตร"] = rows;
+              dashboard["ข้อมูลผลการประเมินคุณภาพหลักสูตร"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลผลการประเมินคุณภาพหลักสูตร"], newRows);
+              dashboard["ผลการประเมินคุณภาพหลักสูตร"] = appendRowsWithoutDuplicate(dashboard["ผลการประเมินคุณภาพหลักสูตร"], newRows);
             } else if (sName.includes("ประเมินคุณภาพบัณฑิต") || sName.includes("ประเมินบัณฑิต")) {
-              dashboard["ข้อมูลผลการประเมินคุณภาพบัณฑิต"] = rows;
-              dashboard["ผลการประเมินคุณภาพบัณฑิต"] = rows;
+              dashboard["ข้อมูลผลการประเมินคุณภาพบัณฑิต"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลผลการประเมินคุณภาพบัณฑิต"], newRows);
+              dashboard["ผลการประเมินคุณภาพบัณฑิต"] = appendRowsWithoutDuplicate(dashboard["ผลการประเมินคุณภาพบัณฑิต"], newRows);
             }
           });
         } else {
           const keyName = targetTableName.trim();
+          const keyLower = keyName.toLowerCase();
           const cleanedRows = previewData.previewRows.map((row) => {
             const newRow = {};
             Object.keys(row).forEach((k) => {
@@ -411,27 +460,39 @@ function UploadPage() {
             return newRow;
           });
 
-          dashboard[keyName] = cleanedRows;
+          dashboard[keyName] = appendRowsWithoutDuplicate(dashboard[keyName], cleanedRows);
 
-          if (keyName.includes("อาจารย์") || keyName.includes("faculty")) {
-            dashboard["ข้อมูลอาจารย์"] = cleanedRows;
-            dashboard["อาจารย์"] = cleanedRows;
-            dashboard["อาจารย์สาขา"] = cleanedRows;
+          if (keyLower.includes("upskill") || keyLower.includes("reskill")) {
+            dashboard["ข้อมูลวิจัย(Upskill)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(Upskill)"], cleanedRows);
+            dashboard["ข้อมูล Upskill-Reskill"] = appendRowsWithoutDuplicate(dashboard["ข้อมูล Upskill-Reskill"], cleanedRows);
+          } else if (keyName.includes("ผลงานวิจัย")) {
+            dashboard["ข้อมูลวิจัย(จำนวนผลงานวิจัย)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(จำนวนผลงานวิจัย)"], cleanedRows);
+            dashboard["จำนวนผลงานวิจัย"] = appendRowsWithoutDuplicate(dashboard["จำนวนผลงานวิจัย"], cleanedRows);
+          } else if (keyName.includes("ทรัพย์สินทางปัญญา")) {
+            dashboard["ข้อมูลวิจัย(จำนวนทรัพย์สินทางปัญญา)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(จำนวนทรัพย์สินทางปัญญา)"], cleanedRows);
+            dashboard["จำนวนทรัพย์สินทางปัญญา"] = appendRowsWithoutDuplicate(dashboard["จำนวนทรัพย์สินทางปัญญา"], cleanedRows);
+          } else if (keyLower.includes("h-index") || keyLower.includes("h_index") || keyLower.includes("hindex")) {
+            dashboard["ข้อมูลวิจัย(ค่า H-Index)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(ค่า H-Index)"], cleanedRows);
+            dashboard["ค่า H-Index"] = appendRowsWithoutDuplicate(dashboard["ค่า H-Index"], cleanedRows);
+          } else if (keyName.includes("อาจารย์") || keyLower.includes("faculty")) {
+            dashboard["ข้อมูลอาจารย์"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลอาจารย์"], cleanedRows);
+            dashboard["อาจารย์"] = appendRowsWithoutDuplicate(dashboard["อาจารย์"], cleanedRows);
+            dashboard["อาจารย์สาขา"] = appendRowsWithoutDuplicate(dashboard["อาจารย์สาขา"], cleanedRows);
           } else if (keyName.includes("งานทำ") || keyName.includes("ภาวะการมีงานทำ")) {
-            dashboard["ข้อมูลภาวะการมีงานทำ"] = cleanedRows;
-            dashboard["ภาวะการมีงานทำ"] = cleanedRows;
-          } else if (keyName.includes("สถานภาพ") || keyName.includes("student_status")) {
-            dashboard["ข้อมูลสถานภาพนิสิต"] = cleanedRows;
-            dashboard["สถานภาพนิสิต"] = cleanedRows;
-          } else if (keyName.includes("คงอยู่") || keyName.includes("student_retain")) {
-            dashboard["จำนวนนิสิตคงอยู่"] = cleanedRows;
-            dashboard["ข้อมูลนิสิตคงอยู่"] = cleanedRows;
+            dashboard["ข้อมูลภาวะการมีงานทำ"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลภาวะการมีงานทำ"], cleanedRows);
+            dashboard["ภาวะการมีงานทำ"] = appendRowsWithoutDuplicate(dashboard["ภาวะการมีงานทำ"], cleanedRows);
+          } else if (keyName.includes("สถานภาพ") || keyLower.includes("student_status")) {
+            dashboard["ข้อมูลสถานภาพนิสิต"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลสถานภาพนิสิต"], cleanedRows);
+            dashboard["สถานภาพนิสิต"] = appendRowsWithoutDuplicate(dashboard["สถานภาพนิสิต"], cleanedRows);
+          } else if (keyName.includes("คงอยู่") || keyLower.includes("student_retain")) {
+            dashboard["จำนวนนิสิตคงอยู่"] = appendRowsWithoutDuplicate(dashboard["จำนวนนิสิตคงอยู่"], cleanedRows);
+            dashboard["ข้อมูลนิสิตคงอยู่"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลนิสิตคงอยู่"], cleanedRows);
           } else if (keyName.includes("ประเมินคุณภาพหลักสูตร") || keyName.includes("ประเมินหลักสูตร")) {
-            dashboard["ข้อมูลผลการประเมินคุณภาพหลักสูตร"] = cleanedRows;
-            dashboard["ผลการประเมินคุณภาพหลักสูตร"] = cleanedRows;
+            dashboard["ข้อมูลผลการประเมินคุณภาพหลักสูตร"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลผลการประเมินคุณภาพหลักสูตร"], cleanedRows);
+            dashboard["ผลการประเมินคุณภาพหลักสูตร"] = appendRowsWithoutDuplicate(dashboard["ผลการประเมินคุณภาพหลักสูตร"], cleanedRows);
           } else if (keyName.includes("ประเมินคุณภาพบัณฑิต") || keyName.includes("ประเมินบัณฑิต")) {
-            dashboard["ข้อมูลผลการประเมินคุณภาพบัณฑิต"] = cleanedRows;
-            dashboard["ผลการประเมินคุณภาพบัณฑิต"] = cleanedRows;
+            dashboard["ข้อมูลผลการประเมินคุณภาพบัณฑิต"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลผลการประเมินคุณภาพบัณฑิต"], cleanedRows);
+            dashboard["ผลการประเมินคุณภาพบัณฑิต"] = appendRowsWithoutDuplicate(dashboard["ผลการประเมินคุณภาพบัณฑิต"], cleanedRows);
           }
         }
 
@@ -439,7 +500,7 @@ function UploadPage() {
         localStorage.setItem("dashboardData", JSON.stringify(dashboard));
         window.dispatchEvent(new Event("storage"));
 
-        message.success("นำเข้าและอัปเดตชุดข้อมูลเข้าสู่ระบบเรียบร้อยแล้ว!");
+        message.success(`นำเข้าและสะสมข้อมูล "${targetTableName}" เรียบร้อยแล้ว!`);
         clearMainUpload();
         fetchDbTablesFromLocal();
         refreshExistingCategories();
@@ -569,7 +630,7 @@ function UploadPage() {
               
               <AntCard title="ช่องอัปโหลดและประมวลผลไฟล์ดิบ (.xlsx / .csv)" style={{ ...commonCardStyle, borderTop: "4px solid #0050b3" }}>
                 <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
-                  <b>ขั้นตอนอัปโหลด:</b> เลือกไฟล์ข้อมูล (.xlsx หรือ .csv) &rarr; ระบบจะตรวจสอบและวิเคราะห์ Sheet ย่อยให้อัตโนมัติ &rarr; ยืนยันบันทึก
+                  <b>ขั้นตอนอัปโหลด:</b> เลือกไฟล์ข้อมูล (.xlsx หรือ .csv) &rarr; ระบบจะตรวจสอบและวิเคราะห์ Sheet ย่อยให้อัตโนมัติ &rarr; ยืนยันบันทึกข้อมูลสะสม
                 </p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 16 }}>
@@ -594,7 +655,7 @@ function UploadPage() {
                       <AntInput 
                         value={targetTableName} 
                         onChange={(e) => setTargetTableName(e.target.value)} 
-                        placeholder="ระบุชื่อหมวดหมู่ เช่น ข้อมูลอาจารย์ หรือ ข้อมูลผลการประเมินคุณภาพหลักสูตร"
+                        placeholder="ระบุชื่อหมวดหมู่ เช่น ข้อมูลอาจารย์ หรือ ข้อมูลวิจัย(Upskill)"
                         disabled={!isAdmin}
                         style={{ borderRadius: 8 }}
                       />
@@ -621,7 +682,7 @@ function UploadPage() {
                         disabled={!isAdmin}
                         style={{ borderRadius: 8, background: "#52c41a", borderColor: "#52c41a" }}
                       >
-                        ยืนยันบันทึกข้อมูล
+                        ยืนยันบันทึกข้อมูลสะสม
                       </AntButton>
                     )}
                   </Space>
@@ -699,7 +760,6 @@ function UploadPage() {
                               </div>
 
                               <Space wrap style={{ justifyContent: "center" }}>
-                                {/* ปุ่มเลือกไฟล์ใหม่ */}
                                 <AntButton 
                                   type="primary" 
                                   icon={<UploadOutlined />} 
@@ -713,7 +773,6 @@ function UploadPage() {
                                   อัปโหลดรูปใหม่
                                 </AntButton>
 
-                                {/* ปุ่มปรับแต่ง/ตัดรูปเดิม */}
                                 <AntButton 
                                   icon={<ScissorOutlined />} 
                                   disabled={!isAdmin || !(activeSelectedTeacher.รูปภาพ || activeSelectedTeacher.avatar || activeSelectedTeacher.image)}
