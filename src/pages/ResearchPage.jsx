@@ -174,23 +174,30 @@ function ResearchPage() {
   }, [hIndexDataList]);
 
   const hIndexPieData = useMemo(() => {
-    if (!hIndexDataList || hIndexDataList.length === 0) return { chartData: [], total: 0, ge1: 0, lt1: 0 };
+    if (!hIndexDataList || hIndexDataList.length === 0) {
+      return { chartData: [], total: 0, ge1: 0, lt1: 0, ge1Percent: "0.0", lt1Percent: "0.0" };
+    }
 
     const activeYear = selectedHIndexYear || (hIndexYears.length > 0 ? hIndexYears[0] : "");
     const match = hIndexDataList.find(item => extractYear(item["ปี พ.ศ."] || item["ปีการศึกษา"]) === activeYear);
 
-    if (!match) return { chartData: [], total: 0, ge1: 0, lt1: 0 };
+    if (!match) {
+      return { chartData: [], total: 0, ge1: 0, lt1: 0, ge1Percent: "0.0", lt1Percent: "0.0" };
+    }
 
     const ge1 = Number(match["จำนวนอาจารย์ที่มีค่า H-Index ตั้งแต่ 1 ขึ้นไป"] || 0);
     const lt1 = Number(match["จำนวนอาจารย์ที่มีค่า H-Index น้อยกว่า 1"] || 0);
     const total = ge1 + lt1;
 
+    const ge1Percent = total > 0 ? ((ge1 / total) * 100).toFixed(1) : "0.0";
+    const lt1Percent = total > 0 ? ((lt1 / total) * 100).toFixed(1) : "0.0";
+
     const chartData = [
-      { name: "H-Index ตั้งแต่ 1 ขึ้นไป", value: ge1 },
-      { name: "H-Index น้อยกว่า 1", value: lt1 }
+      { name: "H-Index ตั้งแต่ 1 ขึ้นไป", value: ge1, percent: ge1Percent },
+      { name: "H-Index น้อยกว่า 1", value: lt1, percent: lt1Percent }
     ];
 
-    return { chartData, total, ge1, lt1 };
+    return { chartData, total, ge1, lt1, ge1Percent, lt1Percent };
   }, [hIndexDataList, selectedHIndexYear, hIndexYears]);
 
   if (loading) {
@@ -258,7 +265,7 @@ function ResearchPage() {
                         <BarChartOutlined style={{ color: "#0284c7", fontSize: 20 }} />
                       </div>
                       <div>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>1. เปรียบเทียบจำนวนผลงานวิจัยตีพิมพ์</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>1. สถิติงานวิจัยและตีพิมพ์</div>
                         <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>วิเคราะห์แนวโน้มจำแนกตามฐานข้อมูลและระดับการตีพิมพ์</div>
                       </div>
                     </div>
@@ -354,7 +361,7 @@ function ResearchPage() {
                           <SafetyCertificateOutlined style={{ color: "#d97706", fontSize: 20 }} />
                         </div>
                         <div>
-                          <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>2. ทรัพย์สินทางปัญญา</div>
+                          <div style={{ fontSize: 16, fontWeight: 700, color: "#142549" }}>2. จำนวนทรัพย์สินทางปัญญา</div>
                           <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}>สิทธิบัตร / อนุสิทธิบัตร ของคณะฯ</div>
                         </div>
                       </div>
@@ -369,7 +376,7 @@ function ResearchPage() {
                         padding: "16px 20px",
                         display: "flex",
                         alignItems: "center",
-                        justify: "space-between"
+                        justifyContent: "space-between"
                       }}>
                         <div>
                           <div style={{ color: "#b45309", fontSize: 13, fontWeight: 600 }}>จำนวนทรัพย์สินทางปัญญารวมทั้งหมด</div>
@@ -454,17 +461,18 @@ function ResearchPage() {
                   >
                     {hIndexPieData.total > 0 ? (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <div style={{ height: 220, width: "100%" }}>
+                        <div style={{ height: 245, width: "100%" }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie
                                 data={hIndexPieData.chartData}
                                 cx="50%"
                                 cy="50%"
-                                innerRadius={50}
-                                outerRadius={80}
+                                innerRadius={48}
+                                outerRadius={72}
                                 paddingAngle={4}
                                 dataKey="value"
+                                label={({ payload }) => `${payload.percent}%`}
                               >
                                 {hIndexPieData.chartData.map((entry, index) => (
                                   <Cell key={`cell-${index}`} fill={HINDEX_COLORS[index % HINDEX_COLORS.length]} />
@@ -485,7 +493,10 @@ function ResearchPage() {
                             <div style={{ background: "#faf5ff", border: "1px solid #f3e8ff", borderRadius: 12, padding: "10px", textAlign: "center" }}>
                               <div style={{ fontSize: 12, color: "#6b21a8", fontWeight: 600 }}>H-Index ≥ 1</div>
                               <div style={{ fontSize: 18, fontWeight: 800, color: "#8b5cf6" }}>
-                                {hIndexPieData.ge1} <span style={{ fontSize: 12, color: "#a855f7", fontWeight: 500 }}>คน</span>
+                                {hIndexPieData.ge1}{" "}
+                                <span style={{ fontSize: 12, color: "#a855f7", fontWeight: 600 }}>
+                                  คน ({hIndexPieData.ge1Percent}%)
+                                </span>
                               </div>
                             </div>
                           </Col>
@@ -493,7 +504,10 @@ function ResearchPage() {
                             <div style={{ background: "#fdf2f8", border: "1px solid #fbcfe8", borderRadius: 12, padding: "10px", textAlign: "center" }}>
                               <div style={{ fontSize: 12, color: "#9d174d", fontWeight: 600 }}>H-Index &lt; 1</div>
                               <div style={{ fontSize: 18, fontWeight: 800, color: "#ec4899" }}>
-                                {hIndexPieData.lt1} <span style={{ fontSize: 12, color: "#f472b6", fontWeight: 500 }}>คน</span>
+                                {hIndexPieData.lt1}{" "}
+                                <span style={{ fontSize: 12, color: "#f472b6", fontWeight: 600 }}>
+                                  คน ({hIndexPieData.lt1Percent}%)
+                                </span>
                               </div>
                             </div>
                           </Col>
