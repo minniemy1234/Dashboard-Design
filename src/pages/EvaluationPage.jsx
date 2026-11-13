@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { Layout, Table, Button, Progress, Card, Empty, Spin } from "antd";
+import { Layout, Table, Button, Progress, Card, Empty, Spin, Tag, Select as AntSelect } from "antd";
 import Sidebar from "../components/Sidebar";
 import {
   BarChart,
@@ -24,7 +24,7 @@ import {
 
 const { Header, Content } = Layout;
 
-// Palette สีสำหรับกราฟย้อนหลัง (ใช้โทน Teal/Sky เช่นเดียวกับหน้า GraduateQualityPage)
+// Palette สีสำหรับกราฟย้อนหลัง
 const YEARLY_COLORS = ["#0ea5e9", "#0284c7", "#0369a1", "#075985"];
 
 // Pure Helper Functions
@@ -39,9 +39,35 @@ const extractYear = (yearStr) => {
   return match ? match[0] : String(yearStr).trim();
 };
 
+// 🔹 ฟังก์ชั่นช่วยดึงค่าจากคอลัมน์ที่ชื่อต่างกันในแต่ละไฟล์
+const getItemValue = (item, keys) => {
+  if (!item || typeof item !== "object") return null;
+  for (const k of keys) {
+    if (item[k] !== undefined && item[k] !== null && item[k] !== "") {
+      return item[k];
+    }
+  }
+  return null;
+};
+
+// 🔹 ฟังก์ชั่นเช็กว่าสาขาเป็นระดับปริญญาโทหรือไม่
+const isMasterMajor = (majorStr) => {
+  if (!majorStr) return false;
+  const str = String(majorStr).trim();
+  return str.startsWith("วท.ม.") || str.startsWith("X") || str.startsWith("x") || str.startsWith("XS") || str.startsWith("xs");
+};
+
+// 🔹 ฟังก์ชั่นทำความสะอาดชื่อสาขา (คงคำว่า วท.ม. ไว้สำหรับ ป.โท)
+const cleanMajorName = (majorStr) => {
+  if (!majorStr) return "";
+  let name = String(majorStr).replace(/\n/g, ' ').trim();
+  name = name.replace(/^วท\.บ\./, '').replace(/^สาขาวิชา/, '').replace(/^หลักสูตร/, '').trim();
+  return name;
+};
+
 // ฟังก์ชันแปลงค่าตัวเลขให้แสดงทศนิยม 2 ตำแหน่ง
 const formatScore = (val) => {
-  if (val === undefined || val === null || val === "" || val === 0) return "-";
+  if (val === undefined || val === null || val === "" || Number(val) === 0) return "-";
   const num = Number(val);
   return isNaN(num) ? "-" : num.toFixed(2);
 };
@@ -69,11 +95,11 @@ function EvaluationPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        const evalData = parsed["ผลการประเมินคุณภาพหลักสูตร"] || [];
+        const evalData = parsed["ผลการประเมินคุณภาพหลักสูตร"] || parsed["ข้อมูลผลการประเมินคุณภาพหลักสูตร"] || parsed["ข้อมูลวิจัย"] || [];
         setRawData(evalData);
         
         const list = evalData
-          .map(item => extractYear(item["ปีการศึกษา"]))
+          .map(item => extractYear(getItemValue(item, ["ปีการศึกษา"])))
           .filter(Boolean)
           .sort()
           .reverse();
@@ -95,18 +121,24 @@ function EvaluationPage() {
     }
   }, []);
 
-  // 2. ดึงข้อมูลทำ Dropdown ตัวเลือกหลัก
+  // 2. ดึงข้อมูลทำ Dropdown ตัวเลือกหลัก (แยกกลุ่ม ป.ตรี และ ป.โท)
   const years = useMemo(() => {
-    const list = rawData.map(item => extractYear(item["ปีการศึกษา"]));
+    const list = rawData.map(item => extractYear(getItemValue(item, ["ปีการศึกษา"])));
     return [...new Set(list)].filter(Boolean).sort().reverse();
   }, [rawData]);
 
   const majors = useMemo(() => {
-    const list = rawData.map(item => String(item["ชื่อสาขา"] || "").replace(/\n/g, ' ').trim());
-    return [...new Set(list)].filter(Boolean).sort();
+    const list = rawData.map(item => cleanMajorName(getItemValue(item, ["ชื่อสาขา", "หลักสูตร", "สาขาวิชา"])));
+    const combined = [...new Set(list)].filter(Boolean);
+    
+    // เรียงให้ ป.ตรี ขึ้นก่อน แล้วตามด้วย ป.โท
+    const bachelorList = combined.filter(m => !isMasterMajor(m)).sort();
+    const masterList = combined.filter(m => isMasterMajor(m)).sort();
+
+    return [...bachelorList, ...masterList];
   }, [rawData]);
 
-  // ฟังก์ชันกดค้นหา/ประมวลผล (สำหรับฟิลเตอร์บนสุด)
+  // ฟังก์ชันกดค้นหา/ประมวลผล
   const handleApplyFilters = useCallback(() => {
     setIsLoading(true);
     setAppliedFilters({ year: selectedYear, major: selectedMajor });
@@ -116,12 +148,12 @@ function EvaluationPage() {
     }, 300);
   }, [selectedYear, selectedMajor]);
 
-  // 3. กรองข้อมูลสำหรับภาพรวมหลัก (KPI Circle และการ์ดสรุปบนสุด)
+  // 3. กรองข้อมูลสำหรับภาพรวมหลัก
   const filteredData = useMemo(() => {
     if (isLoading || rawData.length === 0) return [];
     return rawData.filter(item => {
-      const year = extractYear(item["ปีการศึกษา"]);
-      const majorClean = cleanString(item["ชื่อสาขา"]);
+      const year = extractYear(getItemValue(item, ["ปีการศึกษา"]));
+      const majorClean = cleanString(cleanMajorName(getItemValue(item, ["ชื่อสาขา", "หลักสูตร", "สาขาวิชา"])));
 
       if (appliedFilters.year && year !== appliedFilters.year) return false;
       if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return false;
@@ -134,18 +166,28 @@ function EvaluationPage() {
     if (isLoading || rawData.length === 0) return [];
     return rawData
       .filter(item => {
-        const year = extractYear(item["ปีการศึกษา"]);
-        const majorClean = cleanString(item["ชื่อสาขา"]);
+        const year = extractYear(getItemValue(item, ["ปีการศึกษา"]));
+        const majorClean = cleanString(cleanMajorName(getItemValue(item, ["ชื่อสาขา", "หลักสูตร", "สาขาวิชา"])));
 
         if (tableYearFilter && year !== tableYearFilter) return false;
         if (appliedFilters.major && majorClean !== cleanString(appliedFilters.major)) return false;
         return true;
       })
-      .map(item => ({
-        ...item,
-        year: extractYear(item["ปีการศึกษา"]),
-        major: String(item["ชื่อสาขา"] || "").replace(/\n/g, ' ').trim()
-      }));
+      .map(item => {
+        const mName = cleanMajorName(getItemValue(item, ["ชื่อสาขา", "หลักสูตร", "สาขาวิชา"]));
+        return {
+          ...item,
+          year: extractYear(getItemValue(item, ["ปีการศึกษา"])),
+          major: mName,
+          isMaster: isMasterMajor(mName),
+          comp2: getItemValue(item, ["องค์ที่ 2 บัณฑิต", "บัณฑิต"]),
+          comp3: getItemValue(item, ["องค์ที่ 3 นิสิต", "นิสิต"]),
+          comp4: getItemValue(item, ["องค์ที่ 4อาจารย์", "อาจารย์"]),
+          comp5: getItemValue(item, ["องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน", "หลักสูตร การเรียนการสอน การประเมินผู้เรียน"]),
+          comp6: getItemValue(item, ["องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้", "สิ่งสนับสนุนการเรียนรู้"]),
+          avgTotal: getItemValue(item, ["คะแนนเฉลี่ยรวม", "คะแนนรวม"])
+        };
+      });
   }, [rawData, tableYearFilter, appliedFilters.major, isLoading]);
 
   // 5. คำนวณค่าเฉลี่ยสรุปสำหรับการ์ด KPI
@@ -160,16 +202,16 @@ function EvaluationPage() {
     let cC2 = 0, cC3 = 0, cC4 = 0, cC5 = 0, cC6 = 0;
 
     filteredData.forEach(item => {
-      const inp = Number(item["Input"] || 0);
-      const prc = Number(item["Process"] || 0);
-      const out = Number(item["Output"] || 0);
-      const av = Number(item["คะแนนเฉลี่ยรวม"] || item["คะแนนรวม"] || 0);
+      const inp = Number(getItemValue(item, ["Input"]) || 0);
+      const prc = Number(getItemValue(item, ["Process"]) || 0);
+      const out = Number(getItemValue(item, ["Output"]) || 0);
+      const av = Number(getItemValue(item, ["คะแนนเฉลี่ยรวม", "คะแนนรวม"]) || 0);
       
-      const c2 = Number(item["องค์ที่ 2 บัณฑิต"] || 0);
-      const c3 = Number(item["องค์ที่ 3 นิสิต"] || 0);
-      const c4 = Number(item["องค์ที่ 4อาจารย์"] || 0);
-      const c5 = Number(item["องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน"] || 0);
-      const c6 = Number(item["องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้"] || 0);
+      const c2 = Number(getItemValue(item, ["องค์ที่ 2 บัณฑิต", "บัณฑิต"]) || 0);
+      const c3 = Number(getItemValue(item, ["องค์ที่ 3 นิสิต", "นิสิต"]) || 0);
+      const c4 = Number(getItemValue(item, ["องค์ที่ 4อาจารย์", "อาจารย์"]) || 0);
+      const c5 = Number(getItemValue(item, ["องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน", "หลักสูตร การเรียนการสอน การประเมินผู้เรียน"]) || 0);
+      const c6 = Number(getItemValue(item, ["องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้", "สิ่งสนับสนุนการเรียนรู้"]) || 0);
 
       if (inp > 0) { sumInput += inp; cInput++; }
       if (prc > 0) { sumProcess += prc; cProcess++; }
@@ -196,7 +238,7 @@ function EvaluationPage() {
     };
   }, [filteredData]);
 
-  // 6. กราฟแท่งรายองค์ประกอบ (ใช้สีเดียวกับ GraduateQualityPage)
+  // 6. กราฟแท่งรายองค์ประกอบ
   const tqfColors = ["#0284c7", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#3b82f6", "#6366f1"];
 
   const dynamicGraphData = useMemo(() => {
@@ -218,10 +260,11 @@ function EvaluationPage() {
     if (!rawData || rawData.length === 0) return [];
 
     const filteredByMajor = rawData.filter(item => {
-      return trendMajorFilter ? cleanString(item["ชื่อสาขา"]) === cleanString(trendMajorFilter) : true;
+      const mName = cleanMajorName(getItemValue(item, ["ชื่อสาขา", "หลักสูตร", "สาขาวิชา"]));
+      return trendMajorFilter ? cleanString(mName) === cleanString(trendMajorFilter) : true;
     });
 
-    const allAvailableYears = [...new Set(filteredByMajor.map(item => extractYear(item["ปีการศึกษา"])))]
+    const allAvailableYears = [...new Set(filteredByMajor.map(item => extractYear(getItemValue(item, ["ปีการศึกษา"]))))]
       .filter(Boolean)
       .sort();
 
@@ -241,52 +284,63 @@ function EvaluationPage() {
     }
 
     return targetYears.map(year => {
-      const matchYearData = filteredByMajor.filter(item => extractYear(item["ปีการศึกษา"]) === year);
+      const matchYearData = filteredByMajor.filter(item => extractYear(getItemValue(item, ["ปีการศึกษา"])) === year);
       
-      const getAvg = (key) => {
+      const getAvg = (keys) => {
         if (matchYearData.length === 0) return 0;
-        const validItems = matchYearData.filter(i => Number(i[key]) > 0);
+        const validItems = matchYearData.filter(i => Number(getItemValue(i, keys)) > 0);
         if (validItems.length === 0) return 0;
-        const total = validItems.reduce((sum, item) => sum + Number(item[key] || 0), 0);
+        const total = validItems.reduce((sum, item) => sum + Number(getItemValue(item, keys) || 0), 0);
         return Number((total / validItems.length).toFixed(2));
       };
 
       return {
         year: `ปี ${year}`,
-        c2: getAvg("องค์ที่ 2 บัณฑิต"),
-        c3: getAvg("องค์ที่ 3 นิสิต"),
-        c4: getAvg("องค์ที่ 4อาจารย์"),
-        c5: getAvg("องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน"),
-        c6: getAvg("องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้"),
-        input: getAvg("Input"),
-        process: getAvg("Process"),
-        output: getAvg("Output"),
-        avgTotal: getAvg("คะแนนเฉลี่ยรวม") || getAvg("คะแนนรวม")
+        c2: getAvg(["องค์ที่ 2 บัณฑิต", "บัณฑิต"]),
+        c3: getAvg(["องค์ที่ 3 นิสิต", "นิสิต"]),
+        c4: getAvg(["องค์ที่ 4อาจารย์", "อาจารย์"]),
+        c5: getAvg(["องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน", "หลักสูตร การเรียนการสอน การประเมินผู้เรียน"]),
+        c6: getAvg(["องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้", "สิ่งสนับสนุนการเรียนรู้"]),
+        input: getAvg(["Input"]),
+        process: getAvg(["Process"]),
+        output: getAvg(["Output"]),
+        avgTotal: getAvg(["คะแนนเฉลี่ยรวม", "คะแนนรวม"])
       };
     });
   }, [rawData, trendYearFilter, trendMajorFilter]);
 
-  // คอลัมน์สำหรับตารางรายละเอียดด้านล่างสุด (ปรับฟอร์แมตตัวเลข 2 ตำแหน่ง)
+  // คอลัมน์สำหรับตารางรายละเอียดด้านล่างสุด
   const tableColumns = [
     { title: "ปีการศึกษา", dataIndex: "year", key: "year", width: 105, align: "center" },
-    { title: "สาขาวิชา", dataIndex: "major", key: "major" },
+    { 
+      title: "สาขาวิชา", 
+      dataIndex: "major", 
+      key: "major",
+      render: (text, record) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span>{text}</span>
+          {record.isMaster && (
+            <Tag color="blue" style={{ borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+              ป.โท
+            </Tag>
+          )}
+        </div>
+      )
+    },
     { title: "Input", dataIndex: "Input", key: "Input", align: "center", render: v => <strong>{formatScore(v)}</strong> },
     { title: "Process", dataIndex: "Process", key: "Process", align: "center", render: v => <strong>{formatScore(v)}</strong> },
     { title: "Output", dataIndex: "Output", key: "Output", align: "center", render: v => <strong>{formatScore(v)}</strong> },
-    { title: "องค์ฯ 2 บัณฑิต", dataIndex: "องค์ที่ 2 บัณฑิต", key: "c2", align: "center", render: v => <strong>{formatScore(v)}</strong> },
-    { title: "องค์ฯ 3 นิสิต", dataIndex: "องค์ที่ 3 นิสิต", key: "c3", align: "center", render: v => <strong>{formatScore(v)}</strong> },
-    { title: "องค์ฯ 4 อาจารย์", dataIndex: "องค์ที่ 4อาจารย์", key: "c4", align: "center", render: v => <strong>{formatScore(v)}</strong> },
-    { title: "องค์ฯ 5 หลักสูตร", dataIndex: "องค์ที่ 5หลักสูตร การเรียนการสอน การประเมินผู้เรียน", key: "c5", align: "center", render: v => <strong>{formatScore(v)}</strong> },
-    { title: "องค์ฯ 6 สิ่งสนับสนุน", dataIndex: "องค์ที่ 6 สิ่งสนับสนุนการเรียนรู้", key: "c6", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 2 บัณฑิต", dataIndex: "comp2", key: "comp2", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 3 นิสิต", dataIndex: "comp3", key: "comp3", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 4 อาจารย์", dataIndex: "comp4", key: "comp4", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 5 หลักสูตร", dataIndex: "comp5", key: "comp5", align: "center", render: v => <strong>{formatScore(v)}</strong> },
+    { title: "องค์ฯ 6 สิ่งสนับสนุน", dataIndex: "comp6", key: "comp6", align: "center", render: v => <strong>{formatScore(v)}</strong> },
     { 
       title: "คะแนนเฉลี่ยรวม", 
-      dataIndex: "คะแนนเฉลี่ยรวม", 
-      key: "total", 
+      dataIndex: "avgTotal", 
+      key: "avgTotal", 
       align: "center", 
-      render: (v, record) => {
-        const val = v || record["คะแนนรวม"];
-        return <span style={{ color: "#0d9488", fontWeight: "bold" }}>{formatScore(val)}</span>;
-      } 
+      render: (v) => <span style={{ color: "#0d9488", fontWeight: "bold" }}>{formatScore(v)}</span>
     },
   ];
 
@@ -345,19 +399,50 @@ function EvaluationPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>ปีการศึกษา</div>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9", outline: "none" }}>
-                  <option value="">ทั้งหมด</option>
-                  {years.map(y => <option key={y} value={y}>ปีการศึกษา {y}</option>)}
-                </select>
+                <AntSelect
+                  style={{ width: "100%", height: 44 }}
+                  value={selectedYear || undefined}
+                  placeholder="ทั้งหมด"
+                  allowClear
+                  onChange={(val) => setSelectedYear(val || "")}
+                >
+                  {years.map(y => (
+                    <AntSelect.Option key={y} value={y}>ปีการศึกษา {y}</AntSelect.Option>
+                  ))}
+                </AntSelect>
               </div>
+
+              {/* 🔹 ฟิลเตอร์เลือกสาขาวิชา (ใช้ AntSelect ให้มีป้าย Tag ป.โท สีฟ้าด้านขวาสุดเหมือนภาพตัวอย่าง) */}
               <div>
                 <div style={{ marginBottom: 8, fontWeight: 600 }}>สาขาวิชา</div>
-                <select value={selectedMajor} onChange={(e) => setSelectedMajor(e.target.value)} style={{ width: "100%", padding: 12, borderRadius: 10, border: "1px solid #d9d9d9", outline: "none" }}>
-                  <option value="">ทั้งหมด</option>
-                  {majors.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+                <AntSelect
+                  style={{ width: "100%", height: 44 }}
+                  value={selectedMajor || undefined}
+                  placeholder="ทั้งหมด"
+                  allowClear
+                  onChange={(val) => setSelectedMajor(val || "")}
+                >
+                  {majors.map(m => {
+                    const isMaster = isMasterMajor(m);
+                    return (
+                      <AntSelect.Option key={m} value={m}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                          <span style={{ color: isMaster ? "#0284c7" : "#0f172a", fontWeight: isMaster ? 600 : 400 }}>
+                            {m}
+                          </span>
+                          {isMaster && (
+                            <Tag color="blue" style={{ borderRadius: 6, fontSize: 11, fontWeight: 600, margin: 0 }}>
+                              ป.โท
+                            </Tag>
+                          )}
+                        </div>
+                      </AntSelect.Option>
+                    );
+                  })}
+                </AntSelect>
               </div>
             </div>
+
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
               <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} loading={isLoading} style={{ borderRadius: 10, background: "#0d9488", borderColor: "#0d9488", fontWeight: 500 }}>
                 ประมวลผล
@@ -365,7 +450,7 @@ function EvaluationPage() {
             </div>
           </div>
 
-          {/* MAIN KPI ZONE - ปรับแต่งสีและสไตล์การ์ดใหม่ตามธีม GraduateQualityPage */}
+          {/* MAIN KPI ZONE */}
           <Spin spinning={isLoading}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 20, marginBottom: 24 }}>
               
@@ -444,7 +529,7 @@ function EvaluationPage() {
             </div>
           </Spin>
 
-          {/* CHART ZONE (แผนภูมิแท่งผลการประเมินคุณภาพรายองค์ประกอบ) */}
+          {/* CHART ZONE */}
           <div style={{ background: "white", padding: 24, borderRadius: 20, marginBottom: 24, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <BarChartOutlined style={{ fontSize: 20, color: "#0d9488" }} />
@@ -483,7 +568,7 @@ function EvaluationPage() {
               boxShadow: "0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.15)",
               marginBottom: 24,
               display: "flex",
-              justifyContent: "space-between",
+              justify: "space-between",
               alignItems: "center",
               flexWrap: "wrap",
               gap: 20
@@ -501,31 +586,51 @@ function EvaluationPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", color: "#e2e8f0", fontSize: "13px" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <span style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase", fontWeight: "600", letterSpacing: "0.5px" }}>ปีการศึกษาอ้างอิง</span>
-                  <select 
-                    value={trendYearFilter} 
-                    onChange={(e) => setTrendYearFilter(e.target.value)} 
-                    style={{ background: "rgba(255, 255, 255, 0.07)", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "8px", padding: "8px 14px", color: "#ffffff", outline: "none", cursor: "pointer", fontSize: "13px", minWidth: "120px", backdropFilter: "blur(4px)" }}
+                  <AntSelect
+                    style={{ minWidth: 130 }}
+                    value={trendYearFilter || undefined}
+                    placeholder="ทั้งหมด"
+                    allowClear
+                    onChange={(val) => setTrendYearFilter(val || "")}
                   >
-                    <option value="" style={{ color: "#0f172a" }}>ทั้งหมด</option>
-                    {years.map(y => <option key={`trend-y-${y}`} value={y} style={{ color: "#0f172a" }}>ปีการศึกษา {y}</option>)}
-                  </select>
+                    {years.map(y => (
+                      <AntSelect.Option key={`trend-y-${y}`} value={y}>ปีการศึกษา {y}</AntSelect.Option>
+                    ))}
+                  </AntSelect>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <span style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase", fontWeight: "600", letterSpacing: "0.5px" }}>สาขาวิชา</span>
-                  <select 
-                    value={trendMajorFilter} 
-                    onChange={(e) => setTrendMajorFilter(e.target.value)} 
-                    style={{ background: "rgba(255, 255, 255, 0.07)", border: "1px solid rgba(255, 255, 255, 0.15)", borderRadius: "8px", padding: "8px 14px", color: "#ffffff", outline: "none", cursor: "pointer", maxWidth: "260px", fontSize: "13px", backdropFilter: "blur(4px)" }}
+                  <AntSelect
+                    style={{ minWidth: 240 }}
+                    value={trendMajorFilter || undefined}
+                    placeholder="ทั้งหมด"
+                    allowClear
+                    onChange={(val) => setTrendMajorFilter(val || "")}
                   >
-                    <option value="" style={{ color: "#0f172a" }}>ทั้งหมด</option>
-                    {majors.map(m => <option key={`trend-m-${m}`} value={m} style={{ color: "#0f172a" }}>{m}</option>)}
-                  </select>
+                    {majors.map(m => {
+                      const isMaster = isMasterMajor(m);
+                      return (
+                        <AntSelect.Option key={`trend-m-${m}`} value={m}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                            <span style={{ color: isMaster ? "#0284c7" : "#0f172a", fontWeight: isMaster ? 600 : 400 }}>
+                              {m}
+                            </span>
+                            {isMaster && (
+                              <Tag color="blue" style={{ borderRadius: 6, fontSize: 11, fontWeight: 600, margin: 0 }}>
+                                ป.โท
+                              </Tag>
+                            )}
+                          </div>
+                        </AntSelect.Option>
+                      );
+                    })}
+                  </AntSelect>
                 </div>
               </div>
             </div>
 
-            {/* แสดง 9 กราฟย่อย (Grid 3 Column) */}
+            {/* แสดง 9 กราฟย่อย */}
             <Spin spinning={isLoading}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
                 {renderTrendMiniCard("คะแนนเฉลี่ยด้าน Input", "input")}
@@ -543,16 +648,23 @@ function EvaluationPage() {
             </Spin>
           </div>
 
-          {/* TABLE ZONE รายละเอียดคะแนนการประเมินหลักสูตรรายปี (ตารางล่างสุด) */}
+          {/* TABLE ZONE */}
           <div style={{ background: "white", padding: 24, borderRadius: 20, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#1e293b" }}>รายละเอียดคะแนนการประเมินรายหลักสูตร</h3>
               <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", padding: "6px 14px", borderRadius: 10, border: "1px solid #e2e8f0" }}>
                 <span style={{ fontSize: 13, fontWeight: 500, color: "#475569" }}>ปีการศึกษา:</span>
-                <select value={tableYearFilter} onChange={(e) => setTableYearFilter(e.target.value)} style={{ background: "transparent", border: "none", fontSize: 13, fontWeight: 600, color: "#0d9488", cursor: "pointer", outline: "none" }}>
-                  <option value="">แสดงทุกปี</option>
-                  {years.map((year) => <option key={year} value={year}>ปีการศึกษา {year}</option>)}
-                </select>
+                <AntSelect
+                  style={{ minWidth: 130 }}
+                  value={tableYearFilter || undefined}
+                  placeholder="แสดงทุกปี"
+                  allowClear
+                  onChange={(val) => setTableYearFilter(val || "")}
+                >
+                  {years.map((year) => (
+                    <AntSelect.Option key={year} value={year}>ปีการศึกษา {year}</AntSelect.Option>
+                  ))}
+                </AntSelect>
               </div>
             </div>
             <Table 
