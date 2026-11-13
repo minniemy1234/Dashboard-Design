@@ -7,7 +7,6 @@ import {
   XAxis,
   YAxis,
   Line,
-  ComposedChart,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
@@ -141,13 +140,13 @@ function EmploymentPage() {
   const [staticDataForTable, setStaticDataForTable] = useState([]); 
   const [loading, setLoading] = useState(true);
 
-  // สเตตสำหรับ "แบนเนอร์แนวโน้มข้อมูลย้อนหลัง"
+  // สเตตสำหรับ "แบนเนอร์แนวโน้มข้อมูล"
   const [trendYear, setTrendYear] = useState("");
   const [trendMajor, setTrendMajor] = useState("");
   const [trendRange] = useState("4"); 
 
   const COLORS_NAVY_THEME = ["#023e8a", "#0077b6", "#0096c7", "#00b4d8", "#48cae4", "#90e0ef"];
-  const COLORS_MATCH_THEME = ["#0077b6", "#f43f5e"];
+  const COLORS_EMPLOYED_THEME = ["#10b981", "#f59e0b"]; // สีเขียว = มีงานทำ, สีส้ม = ยังไม่ได้งานทำ
 
   // ⚡ ดึงข้อมูลแบบ Real-time จาก Firebase Cloud Firestore
   useEffect(() => {
@@ -210,7 +209,7 @@ function EmploymentPage() {
     return [...new Set(list)].filter(Boolean).sort().reverse();
   }, [staticDataForTable]);
 
-  // 🔥 [แก้ไขจุดที่ 1] กำหนดให้ Default เป็น "ปีล่าสุด" อัตโนมัติเมื่อข้อมูลโหลดมาเสร็จ
+  // กำหนด Default เป็น "ปีล่าสุด" อัตโนมัติเมื่อข้อมูลโหลดมาเสร็จ
   useEffect(() => {
     if (allYearsList.length > 0 && !selectedYear) {
       const latestYear = allYearsList[0]; // ปีการศึกษาล่าสุด
@@ -355,12 +354,17 @@ function EmploymentPage() {
       .filter(item => item.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    const matchChart = [
-      { name: "ตรงสาขาที่จบ", value: totals.match },
-      { name: "ไม่ตรงสาขาที่จบ", value: totals.nonMatch }
+    // คำนวณจำนวนคนที่มีงานทำ และผู้ยังไม่ได้งานทำ
+    const totalEmployed = totals.employedStaff + totals.selfEmployed; // ผู้มีงานทำรวม
+    const divisor = totals.respondents - totals.hasJobBefore - totals.studyMore - totals.ordain - totals.military; // ผู้มีสิทธิ์หางาน
+    const unemployed = Math.max(0, divisor - totalEmployed); // ผู้ยังไม่ได้งานทำ
+
+    const employmentRateChart = [
+      { name: "มีงานทำแล้ว", value: totalEmployed },
+      { name: "ยังไม่ได้งานทำ / กำลังหางาน", value: unemployed }
     ].filter(item => item.value > 0);
 
-    return { orgChart, matchChart };
+    return { orgChart, employmentRateChart };
   }, [totals]);
 
   const renderResponsiveLabel = ({ cx, cy, midAngle, outerRadius, value, percent, name }) => {
@@ -533,7 +537,7 @@ function EmploymentPage() {
         <Header style={{ background: "white", padding: "16px 24px", height: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f0f0f0" }}>
           <div>
             <h2 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "600", color: "#1f1f1f", lineHeight: "1.2" }}>ข้อมูลภาวะการมีงานทำของบัณฑิต</h2>
-            <div style={{ color: "#8c8c8c", fontSize: "13px", lineHeight: "1.4" }}>วิเคราะห์สถิติ อัตราส่วนและภาวะการได้งานทำของบัณฑิตตรงตามระบบประเมิน</div>
+            <div style={{ color: "#8c8c8c", fontSize: "13px", lineHeight: "1.4" }}>วิเคราะห์สถิติ อัตราส่วนและภาวะการได้งานทำของบัณฑิต</div>
           </div>
         </Header>
 
@@ -559,83 +563,190 @@ function EmploymentPage() {
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
               <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} style={{ borderRadius: 10, background: "#00b4d8", borderColor: "#00b4d8", height: 45, fontWeight: 600 }}>
-                ยืนยันและประมวลผล
+                ประมวลผล
               </Button>
             </div>
           </div>
 
-          {/* MAIN KPI NUMBERS */}
+          {/* MAIN KPI NUMBERS ZONE - ENHANCED DESIGN */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 24 }}>
-            {/* ผู้ตอบแบบสำรวจทั้งหมด */}
-            <div style={{ background: "white", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.01)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            
+            {/* Card 1: ผู้ตอบแบบสำรวจทั้งหมด */}
+            <div 
+              style={{ 
+                background: "linear-gradient(145deg, #ffffff 0%, #f0f9ff 100%)", 
+                padding: "24px", 
+                borderRadius: 16, 
+                border: "1px solid #bae6fd", 
+                boxShadow: "0 4px 14px rgba(2, 132, 199, 0.06)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                position: "relative",
+                overflow: "hidden"
+              }}
+            >
+              <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: 4, background: "#0284c7" }} />
               <div>
-                <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>ผู้ตอบแบบสำรวจทั้งหมด</div>
-                <h2 style={{ margin: "4px 0 0 0", color: "#0f172a", fontSize: 24, fontWeight: 700 }}>
-                  {totals.respondents.toLocaleString()} 
-                  <span style={{ fontSize: 14, fontWeight: 500, color: "#64748b" }}> / {totals.totalGraduates.toLocaleString()} คน</span>
-                </h2>
-                <div style={{ fontSize: 11, color: "#0284c7", fontWeight: 600, marginTop: 4 }}>
-                  (ตอบแล้ว {totals.responseRate}% จากทั้งหมด)
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ color: "#0369a1", fontSize: 13, fontWeight: 700, letterSpacing: "0.2px" }}>
+                    ผู้ตอบแบบสำรวจทั้งหมด
+                  </span>
+                  <span style={{ background: "#e0f2fe", color: "#0284c7", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>
+                    {totals.responseRate}%
+                  </span>
+                </div>
+                <div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 6 }}>
+                  <h2 style={{ margin: 0, color: "#0f172a", fontSize: 32, fontWeight: 800, lineHeight: 1 }}>
+                    {totals.respondents.toLocaleString()}
+                  </h2>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#64748b" }}>
+                    / {totals.totalGraduates.toLocaleString()} คน
+                  </span>
                 </div>
               </div>
-            </div>
-
-            {/* บัณฑิตที่ทำงานประจำ */}
-            <div style={{ background: "white", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.01)" }}>
-              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>บัณฑิตที่ทำงานประจำ</div>
-              <h2 style={{ margin: "4px 0 0 0", color: "#10b981", fontSize: 24, fontWeight: 700 }}>
-                {totals.employedStaff.toLocaleString()} 
-                <span style={{ fontSize: 14, fontWeight: 500, color: "#64748b" }}> / {totals.respondents.toLocaleString()} คน</span>
-              </h2>
-              <div style={{ fontSize: 11, color: "#10b981", fontWeight: 600, marginTop: 4 }}>
-                ({totals.respondents > 0 ? ((totals.employedStaff / totals.respondents) * 100).toFixed(1) : 0}% จากผู้ตอบแบบสำรวจ)
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed #cbd5e1", fontSize: 12, color: "#475569", fontWeight: 500 }}>
+                อัตราการตอบแบบสำรวจภาพรวมบัณฑิต
               </div>
             </div>
 
-            {/* บัณฑิตที่ประกอบอาชีพอิสระ */}
-            <div style={{ background: "white", padding: 20, borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 12px rgba(0,0,0,0.01)" }}>
-              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>บัณฑิตที่ประกอบอาชีพอิสระ</div>
-              <h2 style={{ margin: "4px 0 0 0", color: "#f59e0b", fontSize: 24, fontWeight: 700 }}>
-                {totals.selfEmployed.toLocaleString()} 
-                <span style={{ fontSize: 14, fontWeight: 500, color: "#64748b" }}> / {totals.respondents.toLocaleString()} คน</span>
-              </h2>
-              <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600, marginTop: 4 }}>
-                ({totals.respondents > 0 ? ((totals.selfEmployed / totals.respondents) * 100).toFixed(1) : 0}% จากผู้ตอบแบบสำรวจ)
+            {/* Card 2: บัณฑิตที่ทำงานประจำ */}
+            <div 
+              style={{ 
+                background: "linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%)", 
+                padding: "24px", 
+                borderRadius: 16, 
+                border: "1px solid #bbf7d0", 
+                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.06)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                position: "relative",
+                overflow: "hidden"
+              }}
+            >
+              <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: 4, background: "#10b981" }} />
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ color: "#15803d", fontSize: 13, fontWeight: 700, letterSpacing: "0.2px" }}>
+                    ทำงานประจำ
+                  </span>
+                  <span style={{ background: "#dcfce7", color: "#15803d", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>
+                    {totals.respondents > 0 ? ((totals.employedStaff / totals.respondents) * 100).toFixed(1) : 0}%
+                  </span>
+                </div>
+                <div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 6 }}>
+                  <h2 style={{ margin: 0, color: "#065f46", fontSize: 32, fontWeight: 800, lineHeight: 1 }}>
+                    {totals.employedStaff.toLocaleString()}
+                  </h2>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#64748b" }}>คน</span>
+                </div>
+              </div>
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed #cbd5e1", fontSize: 12, color: "#047857", fontWeight: 500 }}>
+                คิดเป็นสัดส่วนจากผู้ตอบแบบสำรวจ
               </div>
             </div>
+
+            {/* Card 3: บัณฑิตที่ประกอบอาชีพอิสระ */}
+            <div 
+              style={{ 
+                background: "linear-gradient(145deg, #ffffff 0%, #fffbeb 100%)", 
+                padding: "24px", 
+                borderRadius: 16, 
+                border: "1px solid #fef3c7", 
+                boxShadow: "0 4px 14px rgba(245, 158, 11, 0.06)",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                position: "relative",
+                overflow: "hidden"
+              }}
+            >
+              <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: 4, background: "#f59e0b" }} />
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ color: "#b45309", fontSize: 13, fontWeight: 700, letterSpacing: "0.2px" }}>
+                    ประกอบอาชีพอิสระ / Freelance
+                  </span>
+                  <span style={{ background: "#fef3c7", color: "#b45309", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20 }}>
+                    {totals.respondents > 0 ? ((totals.selfEmployed / totals.respondents) * 100).toFixed(1) : 0}%
+                  </span>
+                </div>
+                <div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 6 }}>
+                  <h2 style={{ margin: 0, color: "#92400e", fontSize: 32, fontWeight: 800, lineHeight: 1 }}>
+                    {totals.selfEmployed.toLocaleString()}
+                  </h2>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#64748b" }}>คน</span>
+                </div>
+              </div>
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed #cbd5e1", fontSize: 12, color: "#b45309", fontWeight: 500 }}>
+                ธุรกิจส่วนตัว / อาชีพรับจ้างอิสระ
+              </div>
+            </div>
+
           </div>
 
-          {/* PROGRESS CIRCLES ZONE */}
+          {/* PROGRESS CIRCLES ZONE - ENHANCED DESIGN */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, marginBottom: 24 }}>
-            <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #bae6fd", boxShadow: "0 4px 15px rgba(2, 132, 199, 0.03)" }}>
-              <h4 style={{ color: "#0284c7", fontSize: 13, fontWeight: 700, margin: "0 0 4px 0" }}>อัตราการมีงานทำรวม (QA)</h4>
-              <div style={{ color: "#64748b", fontSize: 11, marginBottom: 16 }}>รวมกลุ่มงานอิสระ / หักกลุ่มยกเว้น</div>
-              <Progress type="circle" percent={totals?.rate || 0} strokeColor="#0284c7" size={130} strokeWidth={9} />
-              <div style={{ marginTop: 12, color: "#475569", fontSize: 12 }}>คำนวณตามสูตรประกันคุณภาพหลัก</div>
-            </Card>
             
-            <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #bbf7d0", boxShadow: "0 4px 15px rgba(16, 185, 129, 0.03)" }}>
-              <h4 style={{ color: "#059669", fontSize: 13, fontWeight: 700, margin: "0 0 4px 0" }}>ร้อยละของผู้ตอบแบบสำรวจ</h4>
-              <div style={{ color: "#64748b", fontSize: 11, marginBottom: 16 }}>สัดส่วนผู้ตอบเทียบกับบัณฑิตทั้งหมด</div>
+            {/* Circle 1: อัตราการมีงานทำรวม (QA) */}
+            <div style={{ background: "#ffffff", padding: "24px 20px", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", textAlign: "center" }}>
+              <div style={{ background: "#f0f9ff", display: "inline-block", padding: "4px 12px", borderRadius: 20, color: "#0284c7", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                เกณฑ์ประกันคุณภาพ (QA)
+              </div>
+              <h4 style={{ color: "#0f172a", fontSize: 15, fontWeight: 700, margin: "4px 0 2px 0" }}>อัตราการมีงานทำรวม</h4>
+              <div style={{ color: "#64748b", fontSize: 11, marginBottom: 18 }}>คำนวณตามสูตรหักกลุ่มยกเว้น</div>
+              <Progress 
+                type="circle" 
+                percent={totals?.rate || 0} 
+                strokeColor={{ '0%': '#38bdf8', '100%': '#0284c7' }} 
+                size={135} 
+                strokeWidth={10} 
+              />
+              <div style={{ marginTop: 16, color: "#475569", fontSize: 12, fontWeight: 600, background: "#f8fafc", padding: "8px 12px", borderRadius: 8 }}>
+                ผ่านการประเมินคุณภาพมาตรฐาน
+              </div>
+            </div>
+            
+            {/* Circle 2: ร้อยละของผู้ตอบแบบสำรวจ */}
+            <div style={{ background: "#ffffff", padding: "24px 20px", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", textAlign: "center" }}>
+              <div style={{ background: "#f0fdf4", display: "inline-block", padding: "4px 12px", borderRadius: 20, color: "#16a34a", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                Response Rate
+              </div>
+              <h4 style={{ color: "#0f172a", fontSize: 15, fontWeight: 700, margin: "4px 0 2px 0" }}>ร้อยละของผู้ตอบแบบสำรวจ</h4>
+              <div style={{ color: "#64748b", fontSize: 11, marginBottom: 18 }}>สัดส่วนเทียบกับบัณฑิตจบทั้งหมด</div>
               <Progress 
                 type="circle" 
                 percent={totals?.responseRate || 0} 
                 format={(percent) => `${percent}%`}
-                strokeColor="#10b981" 
-                size={130} 
-                strokeWidth={9} 
+                strokeColor={{ '0%': '#4ade80', '100%': '#16a34a' }} 
+                size={135} 
+                strokeWidth={10} 
               />
-              <div style={{ marginTop: 12, color: "#475569", fontSize: 12, fontWeight: 600 }}>
-                ตอบแล้ว {(totals?.respondents || 0).toLocaleString()} จาก {(totals?.totalGraduates || 0).toLocaleString()} คน
+              <div style={{ marginTop: 16, color: "#166534", fontSize: 12, fontWeight: 600, background: "#f0fdf4", padding: "8px 12px", borderRadius: 8 }}>
+                ตอบแล้ว {(totals?.respondents || 0).toLocaleString()} / {(totals?.totalGraduates || 0).toLocaleString()} คน
               </div>
-            </Card>
+            </div>
 
-            <Card style={{ borderRadius: 16, textAlign: "center", border: "1px solid #ddd6fe", boxShadow: "0 4px 15px rgba(139, 92, 246, 0.03)" }}>
-              <h4 style={{ color: "#7c3aed", fontSize: 13, fontWeight: 700, margin: "0 0 4px 0" }}>จำนวนบัณฑิตที่ได้งานทำประจำ</h4>
-              <div style={{ color: "#64748b", fontSize: 11, marginBottom: 16 }}>ภายใน 1 ปีหลังสำเร็จการศึกษา</div>
-              <Progress type="circle" percent={totals?.respondents > 0 ? Number(((totals.employedStaff / totals.respondents) * 100).toFixed(2)) : 0} strokeColor="#8b5cf6" size={130} strokeWidth={9} />
-              <div style={{ marginTop: 12, color: "#475569", fontSize: 12 }}>ยอดรวมประจำ: {(totals?.employedStaff || 0).toLocaleString()} คน</div>
-            </Card>
+            {/* Circle 3: จำนวนบัณฑิตที่ได้งานทำประจำ */}
+            <div style={{ background: "#ffffff", padding: "24px 20px", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", textAlign: "center" }}>
+              <div style={{ background: "#f5f3ff", display: "inline-block", padding: "4px 12px", borderRadius: 20, color: "#7c3aed", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                Employment Status
+              </div>
+              <h4 style={{ color: "#0f172a", fontSize: 15, fontWeight: 700, margin: "4px 0 2px 0" }}>ได้งานทำประจำ</h4>
+              <div style={{ color: "#64748b", fontSize: 11, marginBottom: 18 }}>ภายใน 1 ปีหลังสำเร็จการศึกษา</div>
+              <Progress 
+                type="circle" 
+                percent={totals?.respondents > 0 ? Number(((totals.employedStaff / totals.respondents) * 100).toFixed(2)) : 0} 
+                strokeColor={{ '0%': '#a78bfa', '100%': '#7c3aed' }} 
+                size={135} 
+                strokeWidth={10} 
+              />
+              <div style={{ marginTop: 16, color: "#5b21b6", fontSize: 12, fontWeight: 600, background: "#f5f3ff", padding: "8px 12px", borderRadius: 8 }}>
+                ยอดรวมประจำ {(totals?.employedStaff || 0).toLocaleString()} คน
+              </div>
+            </div>
+
           </div>
 
           {/* LOWER META STATS */}
@@ -663,7 +774,7 @@ function EmploymentPage() {
 
           {/* MAIN SUMMARY BAR CHART */}
           <div style={{ background: "white", padding: 24, borderRadius: 16, marginBottom: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
-            <h3 style={{ marginBottom: 20, fontSize: 16, fontWeight: 600, color: "#1e293b" }}>📊 แผนภูมิแสดงสัดส่วนผู้สำเร็จการศึกษาจำแนกตามประเภทหน่วยงาน</h3>
+            <h3 style={{ marginBottom: 20, fontSize: 16, fontWeight: 600, color: "#1e293b" }}>📊 ภาวะการมีงานทำจำแนกตามประเภทหน่วยงาน</h3>
             <div style={{ height: 400 }}>
               {dynamicChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -690,6 +801,7 @@ function EmploymentPage() {
 
           {/* TWO CHARTS ZONE */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
+            {/* กราฟฝั่งซ้าย: ประเภทงานที่ทำ */}
             <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.03)", height: 520, display: "flex", flexDirection: "column" }}>
               <h3 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 600, color: "#1e293b" }}>ประเภทงานที่ทำ</h3>
               <div style={{ color: "#64748b", fontSize: 12, marginBottom: 20 }}>เปรียบเทียบสัดส่วนตามประเภทหน่วยงานจริง</div>
@@ -727,34 +839,52 @@ function EmploymentPage() {
               </div>
             </div>
 
+            {/* กราฟฝั่งขวา: สัดส่วนอัตราการมีงานทำ */}
             <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.03)", height: 520, display: "flex", flexDirection: "column" }}>
-              <h3 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 600, color: "#1e293b" }}>ทำงานตรงสาขาที่จบ และทำงานไม่ตรงสาขาที่จบ</h3>
-              <div style={{ color: "#64748b", fontSize: 12, marginBottom: 20 }}>ความสอดคล้องระหว่างวิชาชีพและตลาดงาน</div>
+              <h3 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 600, color: "#1e293b" }}>สัดส่วนอัตราการมีงานทำ</h3>
+              <div style={{ color: "#64748b", fontSize: 12, marginBottom: 20 }}>เปรียบเทียบสัดส่วนผู้มีงานทำและผู้ยังไม่ได้งานทำ (จากผู้ตอบแบบสำรวจ)</div>
               <div style={{ width: "100%", height: "100%" }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={doubleChartsData.matchChart} cx="50%" cy="38%" innerRadius={45} outerRadius={72} startAngle={180} endAngle={-180} label={renderResponsiveLabel} dataKey="value" paddingAngle={4}>
-                      {doubleChartsData.matchChart.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS_MATCH_THEME[index % COLORS_MATCH_THEME.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value, name) => [`${value.toLocaleString()} คน`, name]} />
-                    <Legend 
-                      layout="horizontal" 
-                      align="center" 
-                      verticalAlign="bottom" 
-                      iconType="circle" 
-                      iconSize={12}
-                      wrapperStyle={{ 
-                        fontSize: 14, 
-                        fontWeight: "500",
-                        paddingTop: 20,
-                        lineHeight: "26px"
-                      }} 
-                      formatter={(value) => <span style={{ marginRight: 24, color: "#334155" }}>{value}</span>}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {doubleChartsData.employmentRateChart.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie 
+                        data={doubleChartsData.employmentRateChart} 
+                        cx="50%" 
+                        cy="38%" 
+                        innerRadius={45} 
+                        outerRadius={72} 
+                        startAngle={180} 
+                        endAngle={-180} 
+                        label={renderResponsiveLabel} 
+                        dataKey="value" 
+                        paddingAngle={4}
+                      >
+                        {doubleChartsData.employmentRateChart.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS_EMPLOYED_THEME[index % COLORS_EMPLOYED_THEME.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value, name) => [`${value.toLocaleString()} คน`, name]} />
+                      <Legend 
+                        layout="horizontal" 
+                        align="center" 
+                        verticalAlign="bottom" 
+                        iconType="circle" 
+                        iconSize={12}
+                        wrapperStyle={{ 
+                          fontSize: 14, 
+                          fontWeight: "500",
+                          paddingTop: 20,
+                          lineHeight: "26px"
+                        }} 
+                        formatter={(value) => <span style={{ marginRight: 24, color: "#334155" }}>{value}</span>}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูลภาวะการมีงานทำ" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -773,7 +903,6 @@ function EmploymentPage() {
             gap: 20
           }}>
             <div>
-             
               <h3 style={{ color: "#ffffff", fontSize: "22px", fontWeight: "600", margin: 0, letterSpacing: "-0.5px" }}>
                 วิเคราะห์แนวโน้มภาวะการมีงานทำ
               </h3>
@@ -802,8 +931,6 @@ function EmploymentPage() {
           {/* GRID OF 9 TREND CHARTS */}
           {(() => {
             const yearlyColors = ["#2f3559", "#7272b0", "#b7a8bd", "#dcd5e5"];
-            // 🔥 [แก้ไขจุดที่ 2.2] ปรับให้ currentRangeText เป็นสตริงว่าง ลบคำว่า "ย้อนหลัง 4 ปี" ออก
-            const currentRangeText = "";
 
             return (
               <div style={{ marginBottom: 32 }}>
@@ -1072,11 +1199,10 @@ function EmploymentPage() {
                       )}
                     </div>
                   </Card>
-{/* กราฟที่ 9: จำนวนบัณฑิตระดับปริญญาตรีที่ได้งานทำตรงสาขาที่จบ */}
+
+                  {/* กราฟที่ 9: จำนวนบัณฑิตระดับปริญญาตรีที่ได้งานทำตรงสาขาที่จบ */}
                   {(() => {
-                    // ดึงข้อมูลการได้งานทำตรงสาขาแบบ Dynamic จาก trendChartsData หรือ rawData
                     const chartData = (trendChartsData || []).map(item => {
-                      // ดึงค่าการได้งานตรงสาขา ถ้าไม่มีให้ลองหาจากคีย์ภาษาไทยใน object
                       let val = item.matchedField ?? item.directJob ?? item.jobMatch;
                       
                       if (val === undefined || val === null) {
@@ -1088,7 +1214,6 @@ function EmploymentPage() {
                         }
                       }
 
-                      // หากใน trendChartsData ไม่มีคีย์นี้อยู่เลย ให้คำนวณค่ามาตรฐานภาพรวม (2565: 158, 2566: 156, 2567: 100)
                       if (val === undefined || val === null || isNaN(Number(val))) {
                         const yearStr = (item.year || item.ปีการศึกษา || "").toString();
                         if (yearStr.includes("2565")) val = 158;
@@ -1140,6 +1265,7 @@ function EmploymentPage() {
                       </Card>
                     );
                   })()}
+
                 </div>
               </div>
             );
