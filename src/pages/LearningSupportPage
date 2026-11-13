@@ -1,1 +1,850 @@
+import React from "react";
+import { Layout, Card, Collapse, Row, Col, Typography, Tag, Image, Button } from "antd";
+import {
+  LaptopOutlined,
+  DesktopOutlined,
+  EnvironmentOutlined,
+  UserOutlined,
+  FolderOpenOutlined,
+  ExperimentOutlined,
+  BookOutlined,
+  MedicineBoxOutlined,
+  ExportOutlined,
+  ThunderboltOutlined,
+  GlobalOutlined
+} from "@ant-design/icons";
+import Sidebar from "../components/Sidebar";
 
+const { Header, Content } = Layout;
+const { Title, Text, Paragraph } = Typography;
+
+// ==========================================
+// 1. ข้อมูลห้องปฏิบัติการคอมพิวเตอร์
+// ==========================================
+const building15CompRooms = [
+  {
+    id: "150412",
+    name: "ห้อง 150412",
+    seats: 40,
+    system: "ระบบ VDI (Virtual Desktop Infrastructure)",
+    image: "/images/room/150412-40.JPG",
+    type: "comp"
+  },
+  {
+    id: "150415",
+    name: "ห้อง 150415",
+    seats: 60,
+    system: "ระบบ VDI (Virtual Desktop Infrastructure)",
+    image: "/images/room/150415-60.JPG",
+    type: "comp"
+  },
+  {
+    id: "150416",
+    name: "ห้อง 150416",
+    seats: 60,
+    system: "ระบบ VDI (Virtual Desktop Infrastructure)",
+    image: "/images/room/150416-60.JPG",
+    type: "comp"
+  }
+];
+
+const building26CompRooms = [
+  {
+    id: "26504",
+    name: "ห้อง 26504",
+    seats: 20,
+    system: "Windows OS",
+    image: "/images/room/26504-20.JPG",
+    type: "comp"
+  },
+  {
+    id: "26506",
+    name: "ห้อง 26506",
+    seats: 25,
+    system: "Windows OS",
+    image: "/images/room/26506-25.JPG",
+    type: "comp"
+  },
+  {
+    id: "26507",
+    name: "ห้อง 26507",
+    seats: 40,
+    system: "MAC OS",
+    image: "/images/room/26507-40.JPG",
+    type: "comp"
+  },
+  {
+    id: "26508",
+    name: "ห้อง 26508",
+    seats: 40,
+    system: "ระบบ VDI (Virtual Desktop Infrastructure)",
+    image: "/images/room/26508-40.JPG",
+    type: "comp"
+  },
+  {
+    id: "26512",
+    name: "ห้อง 26512",
+    seats: 40,
+    system: "ระบบ VDI (Virtual Desktop Infrastructure)",
+    image: "/images/room/26512-40.JPG",
+    type: "comp"
+  }
+];
+
+// ==========================================
+// 2. ข้อมูลห้องปฏิบัติการวิทยาศาสตร์ (เคมี)
+// ==========================================
+const building15ChemRooms = [
+  {
+    id: "150312",
+    name: "ห้อง 150312",
+    seats: 30,
+    system: "ห้องปฏิบัติการเคมี",
+    image: "/images/room/150312-30.JPG",
+    type: "chem"
+  },
+  {
+    id: "150315",
+    name: "ห้อง 150315",
+    seats: 30,
+    system: "ห้องปฏิบัติการเคมี",
+    image: "/images/room/150315-30.JPG",
+    type: "chem"
+  },
+  {
+    id: "150317",
+    name: "ห้อง 150317",
+    seats: 30,
+    system: "ห้องปฏิบัติการเคมี",
+    image: "/images/room/150317-30.JPG",
+    type: "chem"
+  }
+];
+
+const building26ChemRooms = [
+  {
+    id: "261104",
+    name: "ห้อง 261104",
+    seats: 36,
+    system: "ห้องปฏิบัติการเคมี",
+    image: "/images/room/261104-36.JPG",
+    type: "chem"
+  },
+  {
+    id: "261108",
+    name: "ห้อง 261108",
+    seats: 36,
+    system: "ห้องปฏิบัติการเคมี",
+    image: "/images/room/261108-36.JPG",
+    type: "chem"
+  }
+];
+
+// ==========================================
+// 3. ข้อมูลห้องปฏิบัติการวิทยาศาสตร์ (ฟิสิกส์)
+// ==========================================
+const building2PhysicsRooms = [
+  {
+    id: "2207",
+    name: "ห้อง 2207",
+    seats: 30,
+    system: "ห้องปฏิบัติการฟิสิกส์",
+    image: "/images/room/2207-30.JPG",
+    type: "physics"
+  }
+];
+
+const building15PhysicsRooms = [
+  {
+    id: "150212",
+    name: "ห้อง 150212",
+    seats: 40,
+    system: "ห้องปฏิบัติการฟิสิกส์",
+    image: "/images/room/150212-40.JPG",
+    type: "physics"
+  },
+  {
+    id: "150215",
+    name: "ห้อง 150215",
+    seats: 40,
+    system: "ห้องปฏิบัติการฟิสิกส์",
+    image: "/images/room/150215-40.JPG",
+    type: "physics"
+  }
+];
+
+const building26PhysicsRooms = [
+  {
+    id: "26603",
+    name: "ห้อง 26603",
+    seats: 40,
+    system: "ห้องปฏิบัติการฟิสิกส์",
+    image: "/images/room/26603-40.JPG",
+    type: "physics"
+  },
+  {
+    id: "26605",
+    name: "ห้อง 26605",
+    seats: 40,
+    system: "ห้องปฏิบัติการฟิสิกส์",
+    image: "/images/room/26605-40.JPG",
+    type: "physics"
+  }
+];
+
+// ==========================================
+// 4. ข้อมูลห้องปฏิบัติการวิทยาศาสตร์ (สิ่งแวดล้อม)
+// ==========================================
+const building26EnvRooms = [
+  {
+    id: "26904",
+    name: "ห้อง 26904",
+    seats: 40,
+    system: "ห้องปฏิบัติการสิ่งแวดล้อม",
+    image: "/images/room/26904-40.JPG",
+    type: "env"
+  },
+  {
+    id: "26905",
+    name: "ห้อง 26905",
+    seats: 24,
+    system: "ห้องปฏิบัติการสิ่งแวดล้อม",
+    image: "/images/room/26905-24.JPG",
+    type: "env"
+  },
+  {
+    id: "261004",
+    name: "ห้อง 261004",
+    seats: 50,
+    system: "ห้องปฏิบัติการสิ่งแวดล้อม",
+    image: "/images/room/261004-50.JPG",
+    type: "env"
+  },
+  {
+    id: "261008",
+    name: "ห้อง 261008",
+    seats: 20,
+    system: "ห้องปฏิบัติการสิ่งแวดล้อม",
+    image: "/images/room/261008-20.JPG",
+    type: "env"
+  }
+];
+
+// 5. ข้อมูลรูปภาพสำหรับ Card ต่างๆ (ใส่ path รูปทีหลังได้)
+const additionalImages = {
+  building2: "",
+  building15: "",
+  building26: "",
+  library: "/images/room/P1141981.JPG",
+  infirmary: "/images/room/P1141985.JPG"
+};
+
+function LearningSupportPage() {
+  const renderRoomGrid = (rooms) => (
+    <Row gutter={[20, 20]}>
+      {rooms.map((room) => (
+        <Col xs={24} sm={12} md={8} key={room.id}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: 12,
+              overflow: "hidden",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.03)"
+            }}
+            cover={
+              <div style={{ height: 190, background: "#f1f5f9", overflow: "hidden", position: "relative" }}>
+                <Image
+                  alt={room.name}
+                  src={room.image || `/images/rooms/${room.id}.jpg`}
+                  fallback={`https://via.placeholder.com/400x250/0284c7/ffffff?text=${encodeURIComponent(room.name)}`}
+                  wrapperStyle={{ width: "100%", height: "100%" }}
+                  style={{
+                    width: "100%",
+                    height: 190,
+                    objectFit: "cover",
+                    display: "block"
+                  }}
+                />
+              </div>
+            }
+          >
+            <div style={{ textAlign: "center" }}>
+              <Title level={5} style={{ margin: "0 0 8px 0", color: "#1e293b" }}>
+                {room.name}
+              </Title>
+              
+              <div style={{ marginBottom: 8 }}>
+                <Tag color="blue" icon={<UserOutlined />} style={{ borderRadius: 12, padding: "2px 10px", fontSize: 12 }}>
+                  จำนวน {room.seats} ที่นั่ง
+                </Tag>
+              </div>
+
+              <div style={{ marginTop: 8 }}>
+                <Tag
+                  color={
+                    room.type === "chem"
+                      ? "green"
+                      : room.type === "physics"
+                      ? "purple"
+                      : room.type === "env"
+                      ? "cyan"
+                      : room.system.includes("MAC")
+                      ? "magenta"
+                      : room.system.includes("Windows")
+                      ? "blue"
+                      : "geekblue"
+                  }
+                  icon={
+                    room.type === "chem" ? (
+                      <ExperimentOutlined />
+                    ) : room.type === "physics" ? (
+                      <ThunderboltOutlined />
+                    ) : room.type === "env" ? (
+                      <GlobalOutlined />
+                    ) : (
+                      <DesktopOutlined />
+                    )
+                  }
+                  style={{ borderRadius: 10, padding: "2px 8px", fontSize: 11 }}
+                >
+                  {room.system}
+                </Tag>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      ))}
+    </Row>
+  );
+
+  return (
+    <Layout style={{ minHeight: "100vh" }}>
+      <Sidebar />
+      <Layout>
+        <Header
+          style={{
+            background: "white",
+            padding: "16px 24px",
+            height: "auto",
+            lineHeight: "normal",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: "1px solid #f0f0f0"
+          }}
+        >
+          <div>
+            <Title level={4} style={{ margin: "0 0 2px 0", color: "#1f1f1f" }}>
+              สิ่งสนับสนุนการเรียนการสอน
+            </Title>
+            <Text type="secondary" style={{ fontSize: 13, display: "block" }}>
+              สิ่งอำนวยความสะดวกและห้องปฏิบัติการสำหรับการเรียนการสอน คณะวิทยาศาสตร์ ศรีราชา
+            </Text>
+          </div>
+        </Header>
+
+        <Content style={{ padding: "24px 32px", background: "#f8fafc" }}>
+          
+          {/* BANNER สรุปข้อมูลหลัก */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+              borderRadius: 16,
+              padding: "28px 32px",
+              color: "white",
+              marginBottom: 24,
+              boxShadow: "0 10px 25px -5px rgba(2, 132, 199, 0.25)"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <LaptopOutlined style={{ fontSize: 28, color: "#7dd3fc" }} />
+              <Title level={3} style={{ color: "white", margin: 0 }}>
+                ห้องปฏิบัติการ คณะวิทยาศาสตร์ ศรีราชา
+              </Title>
+            </div>
+            <Paragraph style={{ color: "#e0f2fe", fontSize: 15, margin: 0 }}>
+              เปิดให้บริการทั้งหมด <Text bold style={{ color: "#ffffff", fontSize: 18 }}>22 ห้อง</Text> (ห้องคอมพิวเตอร์ 8 ห้อง / ห้องปฏิบัติการเคมี 5 ห้อง / ห้องปฏิบัติการฟิสิกส์ 5 ห้อง / ห้องปฏิบัติการสิ่งแวดล้อม 4 ห้อง) รองรับนิสิตรวมทั้งสิ้น <Text bold style={{ color: "#ffffff", fontSize: 18 }}>811 ที่นั่ง</Text>
+            </Paragraph>
+          </div>
+
+          {/* ส่วนแสดงภาพรวมอาคาร 2, อาคาร 15 และ อาคาร 26 */}
+          <Card
+            title={
+              <span style={{ fontSize: 16, fontWeight: 600, color: "#1e293b" }}>
+                <EnvironmentOutlined style={{ color: "#0284c7", marginRight: 8 }} />
+                ภาพรวมอาคารเรียนและห้องปฏิบัติการ
+              </span>
+            }
+            style={{ borderRadius: 16, marginBottom: 24, boxShadow: "0 4px 14px rgba(0,0,0,0.02)" }}
+          >
+            <Row gutter={[24, 24]}>
+              {/* อาคาร 2 */}
+              <Col xs={24} md={8}>
+                <Card
+                  hoverable
+                  style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #cbd5e1", height: "100%" }}
+                  cover={
+                    additionalImages.building2 ? (
+                      <Image
+                        alt="อาคาร 2"
+                        src={additionalImages.building2}
+                        wrapperStyle={{ width: "100%", height: "100%" }}
+                        style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          height: 200,
+                          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white"
+                        }}
+                      >
+                        <EnvironmentOutlined style={{ fontSize: 48, color: "#38bdf8", marginBottom: 8 }} />
+                        <span style={{ fontSize: 20, fontWeight: 700 }}>รูปภาพอาคาร 2</span>
+                        <span style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>[ รออัปโหลดรูปภาพอาคาร ]</span>
+                      </div>
+                    )
+                  }
+                >
+                  <Card.Meta
+                    title={<span style={{ fontSize: 16, fontWeight: 700 }}>อาคาร 2</span>}
+                    description="ห้องปฏิบัติการฟิสิกส์ 1 ห้อง (รวม 30 ที่นั่ง)"
+                  />
+                </Card>
+              </Col>
+
+              {/* อาคาร 15 */}
+              <Col xs={24} md={8}>
+                <Card
+                  hoverable
+                  style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #cbd5e1", height: "100%" }}
+                  cover={
+                    additionalImages.building15 ? (
+                      <Image
+                        alt="อาคาร 15"
+                        src={additionalImages.building15}
+                        wrapperStyle={{ width: "100%", height: "100%" }}
+                        style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          height: 200,
+                          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white"
+                        }}
+                      >
+                        <EnvironmentOutlined style={{ fontSize: 48, color: "#38bdf8", marginBottom: 8 }} />
+                        <span style={{ fontSize: 20, fontWeight: 700 }}>รูปภาพอาคาร 15</span>
+                        <span style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>[ รออัปโหลดรูปภาพอาคาร ]</span>
+                      </div>
+                    )
+                  }
+                >
+                  <Card.Meta
+                    title={<span style={{ fontSize: 16, fontWeight: 700 }}>อาคาร 15</span>}
+                    description="ห้องปฏิบัติการคอมพิวเตอร์ 3 ห้อง, เคมี 3 ห้อง และฟิสิกส์ 2 ห้อง (รวม 330 ที่นั่ง)"
+                  />
+                </Card>
+              </Col>
+
+              {/* อาคาร 26 */}
+              <Col xs={24} md={8}>
+                <Card
+                  hoverable
+                  style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #cbd5e1", height: "100%" }}
+                  cover={
+                    additionalImages.building26 ? (
+                      <Image
+                        alt="อาคาร 26"
+                        src={additionalImages.building26}
+                        wrapperStyle={{ width: "100%", height: "100%" }}
+                        style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          height: 200,
+                          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white"
+                        }}
+                      >
+                        <EnvironmentOutlined style={{ fontSize: 48, color: "#38bdf8", marginBottom: 8 }} />
+                        <span style={{ fontSize: 20, fontWeight: 700 }}>รูปภาพอาคาร 26</span>
+                        <span style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>[ รออัปโหลดรูปภาพอาคาร ]</span>
+                      </div>
+                    )
+                  }
+                >
+                  <Card.Meta
+                    title={<span style={{ fontSize: 16, fontWeight: 700 }}>อาคาร 26</span>}
+                    description="ห้องปฏิบัติการคอมพิวเตอร์ 5 ห้อง, เคมี 2 ห้อง, ฟิสิกส์ 2 ห้อง และสิ่งแวดล้อม 4 ห้อง (รวม 451 ที่นั่ง)"
+                  />
+                </Card>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* ========================================== */}
+          {/* หมวดหมู่ที่ 1: ห้องปฏิบัติการคอมพิวเตอร์ */}
+          {/* ========================================== */}
+          <div style={{ marginBottom: 32 }}>
+            <Title level={4} style={{ color: "#0284c7", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <LaptopOutlined /> ห้องปฏิบัติการคอมพิวเตอร์
+            </Title>
+            <Collapse
+              defaultActiveKey={[]}
+              bordered={false}
+              style={{ background: "transparent" }}
+              items={[
+                {
+                  key: "building15Comp",
+                  label: (
+                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        <FolderOpenOutlined style={{ color: "#0284c7", marginRight: 8 }} />
+                        อาคาร 15 (จำนวน 3 ห้อง - รวม 160 ที่นั่ง)
+                      </span>
+                    </div>
+                  ),
+                  style: {
+                    background: "white",
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+                    border: "1px solid #e2e8f0"
+                  },
+                  children: renderRoomGrid(building15CompRooms)
+                },
+                {
+                  key: "building26Comp",
+                  label: (
+                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        <FolderOpenOutlined style={{ color: "#0284c7", marginRight: 8 }} />
+                        อาคาร 26 (จำนวน 5 ห้อง - รวม 165 ที่นั่ง)
+                      </span>
+                    </div>
+                  ),
+                  style: {
+                    background: "white",
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+                    border: "1px solid #e2e8f0"
+                  },
+                  children: renderRoomGrid(building26CompRooms)
+                }
+              ]}
+            />
+          </div>
+
+          {/* ========================================== */}
+          {/* หมวดหมู่ที่ 2: ห้องปฏิบัติการวิทยาศาสตร์ (เคมี) */}
+          {/* ========================================== */}
+          <div style={{ marginBottom: 32 }}>
+            <Title level={4} style={{ color: "#16a34a", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <ExperimentOutlined /> ห้องปฏิบัติการวิทยาศาสตร์ (เคมี)
+            </Title>
+            <Collapse
+              defaultActiveKey={[]}
+              bordered={false}
+              style={{ background: "transparent" }}
+              items={[
+                {
+                  key: "building15Chem",
+                  label: (
+                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        <ExperimentOutlined style={{ color: "#16a34a", marginRight: 8 }} />
+                        อาคาร 15 (จำนวน 3 ห้อง - รวม 90 ที่นั่ง)
+                      </span>
+                    </div>
+                  ),
+                  style: {
+                    background: "white",
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+                    border: "1px solid #e2e8f0"
+                  },
+                  children: renderRoomGrid(building15ChemRooms)
+                },
+                {
+                  key: "building26Chem",
+                  label: (
+                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        <ExperimentOutlined style={{ color: "#16a34a", marginRight: 8 }} />
+                        อาคาร 26 (จำนวน 2 ห้อง - รวม 72 ที่นั่ง)
+                      </span>
+                    </div>
+                  ),
+                  style: {
+                    background: "white",
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+                    border: "1px solid #e2e8f0"
+                  },
+                  children: renderRoomGrid(building26ChemRooms)
+                }
+              ]}
+            />
+          </div>
+
+          {/* ========================================== */}
+          {/* หมวดหมู่ที่ 3: ห้องปฏิบัติการวิทยาศาสตร์ (ฟิสิกส์) */}
+          {/* ========================================== */}
+          <div style={{ marginBottom: 32 }}>
+            <Title level={4} style={{ color: "#7c3aed", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <ThunderboltOutlined /> ห้องปฏิบัติการวิทยาศาสตร์ (ฟิสิกส์)
+            </Title>
+            <Collapse
+              defaultActiveKey={[]}
+              bordered={false}
+              style={{ background: "transparent" }}
+              items={[
+                {
+                  key: "building2Physics",
+                  label: (
+                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        <ThunderboltOutlined style={{ color: "#7c3aed", marginRight: 8 }} />
+                        อาคาร 2 (จำนวน 1 ห้อง - รวม 30 ที่นั่ง)
+                      </span>
+                    </div>
+                  ),
+                  style: {
+                    background: "white",
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+                    border: "1px solid #e2e8f0"
+                  },
+                  children: renderRoomGrid(building2PhysicsRooms)
+                },
+                {
+                  key: "building15Physics",
+                  label: (
+                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        <ThunderboltOutlined style={{ color: "#7c3aed", marginRight: 8 }} />
+                        อาคาร 15 (จำนวน 2 ห้อง - รวม 80 ที่นั่ง)
+                      </span>
+                    </div>
+                  ),
+                  style: {
+                    background: "white",
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+                    border: "1px solid #e2e8f0"
+                  },
+                  children: renderRoomGrid(building15PhysicsRooms)
+                },
+                {
+                  key: "building26Physics",
+                  label: (
+                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        <ThunderboltOutlined style={{ color: "#7c3aed", marginRight: 8 }} />
+                        อาคาร 26 (จำนวน 2 ห้อง - รวม 80 ที่นั่ง)
+                      </span>
+                    </div>
+                  ),
+                  style: {
+                    background: "white",
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+                    border: "1px solid #e2e8f0"
+                  },
+                  children: renderRoomGrid(building26PhysicsRooms)
+                }
+              ]}
+            />
+          </div>
+
+          {/* ========================================== */}
+          {/* หมวดหมู่ที่ 4: ห้องปฏิบัติการวิทยาศาสตร์ (สิ่งแวดล้อม) */}
+          {/* ========================================== */}
+          <div style={{ marginBottom: 32 }}>
+            <Title level={4} style={{ color: "#0d9488", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <GlobalOutlined /> ห้องปฏิบัติการวิทยาศาสตร์ (สิ่งแวดล้อม)
+            </Title>
+            <Collapse
+              defaultActiveKey={[]}
+              bordered={false}
+              style={{ background: "transparent" }}
+              items={[
+                {
+                  key: "building26Env",
+                  label: (
+                    <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
+                        <GlobalOutlined style={{ color: "#0d9488", marginRight: 8 }} />
+                        อาคาร 26 (จำนวน 4 ห้อง - รวม 134 ที่นั่ง)
+                      </span>
+                    </div>
+                  ),
+                  style: {
+                    background: "white",
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    boxShadow: "0 4px 14px rgba(0,0,0,0.02)",
+                    border: "1px solid #e2e8f0"
+                  },
+                  children: renderRoomGrid(building26EnvRooms)
+                }
+              ]}
+            />
+          </div>
+
+          {/* ========================================== */}
+          {/* หมวดหมู่ที่ 5: สิ่งอำนวยความสะดวกอื่นๆ (หอสมุด & ห้องพยาบาล) */}
+          {/* ========================================== */}
+          <Card
+            title={
+              <span style={{ fontSize: 16, fontWeight: 600, color: "#1e293b" }}>
+                <EnvironmentOutlined style={{ color: "#0284c7", marginRight: 8 }} />
+                สิ่งอำนวยความสะดวกอื่นๆ
+              </span>
+            }
+            style={{ borderRadius: 16, marginBottom: 24, boxShadow: "0 4px 14px rgba(0,0,0,0.02)" }}
+          >
+            <Row gutter={[24, 24]}>
+              {/* 1. หอสมุดอนุสรณ์ 10 ปี */}
+              <Col xs={24} md={12}>
+                <Card
+                  hoverable
+                  style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #cbd5e1", height: "100%", display: "flex", flexDirection: "column" }}
+                  cover={
+                    additionalImages.library ? (
+                      <Image
+                        alt="หอสมุดอนุสรณ์ 10 ปี"
+                        src={additionalImages.library}
+                        wrapperStyle={{ width: "100%", height: "100%" }}
+                        style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          height: 200,
+                          background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white"
+                        }}
+                      >
+                        <BookOutlined style={{ fontSize: 48, color: "#818cf8", marginBottom: 8 }} />
+                        <span style={{ fontSize: 20, fontWeight: 700 }}>หอสมุดอนุสรณ์ 10 ปี</span>
+                        <span style={{ fontSize: 12, color: "#c7d2fe", marginTop: 4 }}>[ รออัปโหลดรูปภาพหอสมุด ]</span>
+                      </div>
+                    )
+                  }
+                >
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div>
+                      <Title level={5} style={{ margin: "0 0 8px 0" }}>
+                        <BookOutlined style={{ color: "#4f46e5", marginRight: 8 }} />
+                        หอสมุดอนุสรณ์ 10 ปี
+                      </Title>
+                      <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 16 }}>
+                        แหล่งค้นคว้าข้อมูล สารสนเทศ หนังสือ วารสาร และพื้นที่สำหรับการอ่านหนังสือและการทำงานกลุ่มของนิสิต
+                      </Paragraph>
+                    </div>
+
+                    <Button
+                      type="primary"
+                      icon={<ExportOutlined />}
+                      href="https://lib.src.ku.ac.th/weblib68/pagenew/aboutlib.php"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        borderRadius: 8,
+                        background: "#4f46e5",
+                        borderColor: "#4f46e5",
+                        width: "100%"
+                      }}
+                    >
+                      เข้าสู่เว็บไซต์หอสมุด
+                    </Button>
+                  </div>
+                </Card>
+              </Col>
+
+              {/* 2. ห้องพยาบาล */}
+              <Col xs={24} md={12}>
+                <Card
+                  hoverable
+                  style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #cbd5e1", height: "100%", display: "flex", flexDirection: "column" }}
+                  cover={
+                    additionalImages.infirmary ? (
+                      <Image
+                        alt="ห้องพยาบาล"
+                        src={additionalImages.infirmary}
+                        wrapperStyle={{ width: "100%", height: "100%" }}
+                        style={{ width: "100%", height: 200, objectFit: "cover", display: "block" }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          height: 200,
+                          background: "linear-gradient(135deg, #064e3b 0%, #047857 100%)",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "white"
+                        }}
+                      >
+                        <MedicineBoxOutlined style={{ fontSize: 48, color: "#34d399", marginBottom: 8 }} />
+                        <span style={{ fontSize: 20, fontWeight: 700 }}>ห้องพยาบาล</span>
+                        <span style={{ fontSize: 12, color: "#a7f3d0", marginTop: 4 }}>[ รออัปโหลดรูปภาพห้องพยาบาล ]</span>
+                      </div>
+                    )
+                  }
+                >
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div>
+                      <Title level={5} style={{ margin: "0 0 8px 0" }}>
+                        <MedicineBoxOutlined style={{ color: "#10b981", marginRight: 8 }} />
+                        ห้องพยาบาล มหาวิทยาลัยเกษตรศาสตร์ วิทยาเขตศรีราชา
+                      </Title>
+                      <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 12 }}>
+                        ให้บริการปฐมพยาบาลเบื้องต้น และการดูแลสุขภาพเบื้องต้นสำหรับนิสิตและบุคลากร
+                      </Paragraph>
+                    </div>
+
+                    <Tag color="green" icon={<EnvironmentOutlined />} style={{ borderRadius: 8, padding: "4px 8px", fontSize: 12, textAlign: "center" }}>
+                      ให้บริการ ณ อาคารกิจกรรมนิสิต
+                    </Tag>
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+          </Card>
+
+        </Content>
+      </Layout>
+    </Layout>
+  );
+}
+
+export default LearningSupportPage;
