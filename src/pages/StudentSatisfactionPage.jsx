@@ -290,7 +290,7 @@ function StudentSatisfactionPage() {
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
               <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} style={{ borderRadius: 10, background: "#13c2c2", borderColor: "#13c2c2" }}>
-                ประมวลผลข้อมูลประเมิน
+                ประมวลผล
               </Button>
             </div>
           </div>
