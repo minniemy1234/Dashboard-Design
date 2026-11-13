@@ -211,7 +211,7 @@ function CoursePage() {
                 onClick={handleApplyFilters} 
                 style={{ height: 42, borderRadius: 10 }}
               >
-                ยืนยันและประมวลผล
+                ประมวลผล
               </Button>
             </div>
           </div>
