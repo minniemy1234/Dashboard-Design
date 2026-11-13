@@ -378,6 +378,28 @@ function FacultyPage() {
         return <Tag color="geekblue" style={{ borderRadius: 6 }}>{type}</Tag>;
       }
     },
+    {
+      title: "สถานะในหลักสูตร",
+      key: "courseStatus",
+      align: "center",
+      render: (text, record) => {
+        const status = record["สถานะในหลักสูตร"] || record["สถานะอาจารย์"] || record["สถานะ"] || getTeacherType(record);
+        const statusStr = String(status).trim();
+
+        let tagColor = "blue";
+        if (statusStr.includes("ผู้รับผิดชอบ")) {
+          tagColor = "volcano";
+        } else if (statusStr.includes("ประจำ")) {
+          tagColor = "green";
+        } else if (statusStr.includes("พิเศษ") || statusStr.includes("ผู้สอน")) {
+          tagColor = "purple";
+        } else if (statusStr.includes("ลาศึกษาต่อ")) {
+          tagColor = "warning";
+        }
+
+        return <Tag color={tagColor} style={{ borderRadius: 6 }}>{statusStr || "อาจารย์ประจำ"}</Tag>;
+      }
+    },
     { 
       title: "คุณวุฒิ / การศึกษาสูงสุด", 
       key: "degree",
