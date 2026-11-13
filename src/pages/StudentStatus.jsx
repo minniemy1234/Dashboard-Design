@@ -244,7 +244,7 @@ function StudentStatus() {
         <Header style={{ background: "white", padding: "16px 24px", height: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#0f172a", lineHeight: "1.2" }}>
-              Student Status Overview
+              ข้อมูลสถานะนิสิต
             </h2>
             <div style={{ color: "#64748b", fontSize: "13px", lineHeight: "1.4", margin: 0 }}>
               ระบบวิเคราะห์ข้อมูลสถานะนิสิต (จำแนกกลุ่ม ลาออก / พ้นสภาพ / ถูกคัดชื่อ)
@@ -279,7 +279,7 @@ function StudentStatus() {
                 ล้างค่าการค้นหา
               </Button>
               <Button type="primary" size="large" icon={<SearchOutlined />} onClick={handleApplyFilters} style={{ height: 41, borderRadius: 8, padding: "0 28px", fontSize: 14, fontWeight: 600, background: "#0284c7", borderColor: "#0284c7" }}>
-                ค้นหาข้อมูลสถานะ
+                ประมวลผล
               </Button>
             </div>
           </div>
@@ -444,7 +444,7 @@ function StudentStatus() {
               <BarChartOutlined style={{ fontSize: 20, color: "#0284c7" }} />
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
-                  เปรียบเทียบจำนวนนิสิตออกกลางคันแยกตามสาขาวิชา ({chartTitleYear})
+                  เปรียบเทียบจำนวนนิสิตออกแยกตามสาขาวิชา
                 </h3>
                 <div style={{ color: "#64748b", fontSize: 12, marginTop: 2 }}>จำแนกตามสัดส่วน ลาออก พ้นสภาพ และถูกคัดชื่อออก</div>
               </div>
@@ -536,7 +536,7 @@ function StudentStatus() {
           <div style={{ background: "white", padding: 24, borderRadius: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.02)", border: "1px solid #e2e8f0" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
               <TableOutlined style={{ fontSize: 20, color: "#0284c7" }} />
-              <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#0f172a" }}>รายละเอียดข้อมูลนิสิตจำแนกรายบุคคล/กลุ่มสถานะ</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#0f172a" }}>รายละเอียดสถานะนิสิตจำแนกตามสาขา</h3>
             </div>
             
             <h4 style={{ marginTop: 20, color: "#d97706", fontSize: 15, fontWeight: 700 }}>📋 รายการนิสิตลาออก</h4>
