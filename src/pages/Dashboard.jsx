@@ -488,38 +488,96 @@ function Dashboard() {
       <Sidebar />
       <Layout style={{ background: "#f8fafc" }}>
 
-        <Header style={{ 
-          background: "#ffffff", 
-          padding: "14px 32px", 
-          height: "auto", 
-          display: "flex", 
-          justifyContent: "space-between", 
-          alignItems: "center", 
-          borderBottom: "1px solid #e2e8f0",
-          boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.03)"
-        }}>
-         
-          <div style={{ display: "flex", flexDirection: "column", gap: "0px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0px" }}>
-              <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "800", color: "#0f172a", lineHeight: "1.2" }}>
-                ระบบสารสนเทศด้านการศึกษาเพื่อการบริหารและพัฒนาคณะวิทยาศาสตร์ ศรีราชา
-              </h1>
-              <Tag color="blue" style={{ borderRadius: "12px", padding: "1px 10px", fontWeight: "600" }}>
-                คณะวิทยาศาสตร์ ศรีราชา
-              </Tag>
+        <Header
+          style={{
+            background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
+            padding: "20px 32px",
+            height: "auto",
+            lineHeight: "normal",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: "2px solid #bae6fd",
+            boxShadow: "0 4px 20px -2px rgba(2, 132, 199, 0.08)"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            {/* กล่องไอคอนเด่นด้านซ้าย */}
+            <div
+              style={{
+                width: "52px",
+                height: "52px",
+                borderRadius: "14px",
+                background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 8px 16px -4px rgba(2, 132, 199, 0.4)",
+                flexShrink: 0
+              }}
+            >
+              <DashboardOutlined style={{ fontSize: "26px", color: "#ffffff" }} />
             </div>
-            <p style={{ color: "#64748b", fontSize: "13px", margin: "2px 0 0 0", lineHeight: "1.2" }}>
-             [Education Management Information System (EMIS) for Faculty of Science, Sriracha]
-            </p>
+
+            {/* ข้อความหัวข้อและคำอธิบาย */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: "24px",
+                    fontWeight: "900",
+                    background: "linear-gradient(90deg, #0f172a 0%, #0369a1 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    letterSpacing: "-0.02em",
+                    lineHeight: "1.2"
+                  }}
+                >
+                  ระบบสารสนเทศด้านการศึกษาเพื่อการบริหารและพัฒนาคณะวิทยาศาสตร์ ศรีราชา
+                </h1>
+                <Tag
+                  color="#0284c7"
+                  style={{
+                    borderRadius: "20px",
+                    padding: "2px 12px",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    border: "none",
+                    boxShadow: "0 2px 6px rgba(2, 132, 199, 0.25)"
+                  }}
+                >
+                  คณะวิทยาศาสตร์ ศรีราชา
+                </Tag>
+              </div>
+              <p
+                style={{
+                  color: "#475569",
+                  fontSize: "13px",
+                  fontWeight: "500",
+                  margin: 0,
+                  lineHeight: "1.2",
+                  letterSpacing: "0.02em"
+                }}
+              >
+                Education Management Information System (EMIS) for Faculty of Science, Sriracha
+              </p>
+            </div>
           </div>
 
           <Space size="middle">
             <AntTooltip title="รีเฟรชข้อมูล">
-              <Button 
-                shape="circle" 
-                icon={<ReloadOutlined />} 
+              <Button
+                shape="circle"
+                size="large"
+                icon={<ReloadOutlined />}
                 onClick={loadDashboardData}
-                style={{ borderColor: "#cbd5e1", color: "#64748b" }}
+                style={{
+                  borderColor: "#bae6fd",
+                  color: "#0284c7",
+                  background: "#ffffff",
+                  boxShadow: "0 2px 6px rgba(2, 132, 199, 0.1)"
+                }}
               />
             </AntTooltip>
           </Space>
