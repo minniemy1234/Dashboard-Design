@@ -129,7 +129,7 @@ function Dashboard() {
     return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
   };
 
-  //  ฟังก์ชั่นชื่อสาขา
+  // 🔹 ฟังก์ชั่นทำความสะอาดชื่อสาขา
   const cleanMajorName = (majorStr) => {
     if (!majorStr) return "";
     let name = String(majorStr).replace(/\n/g, ' ').trim();
@@ -169,7 +169,7 @@ function Dashboard() {
     return year;
   };
 
-  // ตรวจสอบว่าเป็นสาขาระดับ ป.โท 
+  // 🔹 ตรวจสอบว่าเป็นสาขาระดับ ป.โท หรือไม่ (เช็กเฉพาะคำนำหน้า วท.ม. หรือ X)
   const isMasterOrXMajor = (majorName) => {
     if (!majorName) return false;
     const clean = String(majorName).replace(/\s+/g, '').trim();
@@ -181,7 +181,7 @@ function Dashboard() {
     return dashboardData["student_retain"] || dashboardData["นิสิตคงอยู่"] || dashboardData["ข้อมูลนิสิตคงอยู่"] || dashboardData["จำนวนนิสิตคงอยู่"] || dashboardData["student_retain_data"] || [];
   }, [dashboardData]);
 
-  // ดึงข้อมูลภาวะการมีงานทำแบบล็อกเฉพาะ Key แรกที่พบ
+  // 🔹 ดึงข้อมูลภาวะการมีงานทำแบบล็อกเฉพาะ Key แรกที่พบ
   const employmentList = useMemo(() => {
     if (!dashboardData || Object.keys(dashboardData).length === 0) return [];
     
@@ -237,7 +237,7 @@ function Dashboard() {
     return [...bachelorMajors, ...masterMajors];
   }, [retain]);
 
-  // นับจำนวนหลักสูตรทั้งหมดจาก "ปีที่รับเข้า" ล่าสุด (ปี 2568 ภาคต้น = 6 สาขา + ป.โท 2 สาขา = 8 สาขา)
+  // 🔹 นับจำนวนหลักสูตรทั้งหมดจาก "ปีที่รับเข้า" ล่าสุด (ปี 2568 ภาคต้น = 6 สาขา + ป.โท 2 สาขา = 8 สาขา)
   const latestYearProgramsCount = useMemo(() => {
     if (retain.length === 0) return majorsOptions.length;
     
@@ -335,7 +335,7 @@ function Dashboard() {
       .sort((a, b) => (b.earlyTerm + b.lateTerm) - (a.earlyTerm + a.lateTerm));
   }, [rawGraphData]);
 
-  // คำนวณสรุปข้อมูล KPI
+  // 🔹 คำนวณสรุปข้อมูล KPI
   const studentBreakdown = useMemo(() => {
     let admitted = 0;
     let retained = 0;
@@ -343,7 +343,7 @@ function Dashboard() {
     let bachelorRetained = 0;
     let masterAdmitted = 0;
     let masterRetained = 0;
-    let lecturers = 66;
+    let lecturers = 66 + 32; // ค่าเริ่มต้น +32 คนชั่วคราว
     let graduates = 0;
 
     if (dashboardData && Object.keys(dashboardData).length > 0) {
@@ -384,7 +384,7 @@ function Dashboard() {
         }
       });
 
-   
+      // 🎯 คำนวณผู้สำเร็จการศึกษา: ใช้ Set ดักจับ Unique Key (สาขา + ปี) ป้องกันข้อมูลซ้ำซ้อนในฐานข้อมูล
       const trackedRowKeys = new Set();
       let directGradSum = 0;
 
@@ -393,6 +393,7 @@ function Dashboard() {
           const rawMajor = getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"]);
           const cleanName = String(rawMajor || "").trim();
 
+          // ข้ามแถวที่ไม่มีข้อมูล หรือแถวรวม
           if (!cleanName || cleanName.includes("รวม") || cleanName.includes("จำนวน") || cleanName === "-") {
             return;
           }
@@ -401,7 +402,7 @@ function Dashboard() {
           const rawYear = getCleanItemValue(item, ["ปีการศึกษา", "ปีสำเร็จการศึกษา", "ปีที่สำเร็จ", "ปีการศึกษาที่รับเข้า", "ปีที่สำรวจ"]);
           const gradYear = extractYear(rawYear);
 
-          
+          // 🛑 ล็อกแถว: ถ้าสาขา X ในปี Y ถูกนับไปแล้ว จะไม่นำมารวมซ้ำ
           const rowKey = `${gradMajorClean}_${gradYear}`;
           if (trackedRowKeys.has(rowKey)) {
             return;
@@ -422,7 +423,7 @@ function Dashboard() {
 
       graduates = directGradSum;
 
-      // คำนวณบุคลากร
+      // คำนวณบุคลากร (+32 คนเพิ่มชั่วคราวตามต้องการ)
       if (Array.isArray(teacher) && teacher.length > 0) {
         const selectedBaseMajors = new Set(
           appliedFilters.majors.map(m => cleanMajorName(m))
@@ -447,7 +448,7 @@ function Dashboard() {
         );
 
         if (uniqueTeacherNames.size > 0) {
-          lecturers = uniqueTeacherNames.size;
+          lecturers = uniqueTeacherNames.size + 32;
         }
       }
     }
@@ -544,35 +545,21 @@ function Dashboard() {
 
             {/* ข้อความหัวข้อและคำอธิบาย */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
-                <h1
-                  style={{
-                    margin: 0,
-                    fontSize: "30px",
-                    fontWeight: "900",
-                    color: "#ffffff",
-                    textShadow: "0 2px 6px rgba(0, 0, 0, 0.35)",
-                    letterSpacing: "-0.01em",
-                    lineHeight: "1.3"
-                  }}
-                >
-                  ระบบสารสนเทศด้านการศึกษาเพื่อการบริหารและพัฒนาคณะวิทยาศาสตร์ ศรีราชา
-                </h1>
-                <Tag
-                  style={{
-                    backgroundColor: "rgba(56, 189, 248, 0.22)",
-                    color: "#7dd3fc",
-                    borderRadius: "24px",
-                    padding: "5px 16px",
-                    fontWeight: "700",
-                    fontSize: "14px",
-                    border: "1px solid rgba(125, 211, 252, 0.45)",
-                    backdropFilter: "blur(4px)"
-                  }}
-                >
-                  คณะวิทยาศาสตร์ ศรีราชา
-                </Tag>
-              </div>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "30px",
+                  fontWeight: "900",
+                  color: "#ffffff",
+                  textShadow: "0 2px 6px rgba(0, 0, 0, 0.35)",
+                  letterSpacing: "-0.01em",
+                  lineHeight: "1.3"
+                }}
+              >
+                ระบบสารสนเทศด้านการศึกษาเพื่อการบริหารและพัฒนา
+                <br />
+                คณะวิทยาศาสตร์ ศรีราชา
+              </h1>
               <p
                 style={{
                   color: "#e2e8f0",
@@ -839,7 +826,7 @@ function Dashboard() {
                     </div>
                   </Col>
 
-                  {/* KPI 4: บุคลากรรวม */}
+                  {/* KPI 4: บุคลากรรวม (+32 คน) */}
                   <Col xs={24} sm={12} lg={6}>
                     <div style={{ 
                       background: "linear-gradient(135deg, #d97706 0%, #b45309 100%)", 
