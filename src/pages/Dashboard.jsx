@@ -129,7 +129,7 @@ function Dashboard() {
     return String(str).replace(/\s+/g, '').replace(/['"]+/g, '').trim();
   };
 
-  // 🔹 ฟังก์ชั่นทำความสะอาดชื่อสาขา
+  //  ฟังก์ชั่นชื่อสาขา
   const cleanMajorName = (majorStr) => {
     if (!majorStr) return "";
     let name = String(majorStr).replace(/\n/g, ' ').trim();
@@ -169,7 +169,7 @@ function Dashboard() {
     return year;
   };
 
-  // 🔹 ตรวจสอบว่าเป็นสาขาระดับ ป.โท หรือไม่ (เช็กเฉพาะคำนำหน้า วท.ม. หรือ X)
+  // ตรวจสอบว่าเป็นสาขาระดับ ป.โท 
   const isMasterOrXMajor = (majorName) => {
     if (!majorName) return false;
     const clean = String(majorName).replace(/\s+/g, '').trim();
@@ -181,7 +181,7 @@ function Dashboard() {
     return dashboardData["student_retain"] || dashboardData["นิสิตคงอยู่"] || dashboardData["ข้อมูลนิสิตคงอยู่"] || dashboardData["จำนวนนิสิตคงอยู่"] || dashboardData["student_retain_data"] || [];
   }, [dashboardData]);
 
-  // 🔹 ดึงข้อมูลภาวะการมีงานทำแบบล็อกเฉพาะ Key แรกที่พบ
+  // ดึงข้อมูลภาวะการมีงานทำแบบล็อกเฉพาะ Key แรกที่พบ
   const employmentList = useMemo(() => {
     if (!dashboardData || Object.keys(dashboardData).length === 0) return [];
     
@@ -237,7 +237,7 @@ function Dashboard() {
     return [...bachelorMajors, ...masterMajors];
   }, [retain]);
 
-  // 🔹 นับจำนวนหลักสูตรทั้งหมดจาก "ปีที่รับเข้า" ล่าสุด (ปี 2568 ภาคต้น = 6 สาขา + ป.โท 2 สาขา = 8 สาขา)
+  // นับจำนวนหลักสูตรทั้งหมดจาก "ปีที่รับเข้า" ล่าสุด (ปี 2568 ภาคต้น = 6 สาขา + ป.โท 2 สาขา = 8 สาขา)
   const latestYearProgramsCount = useMemo(() => {
     if (retain.length === 0) return majorsOptions.length;
     
@@ -335,7 +335,7 @@ function Dashboard() {
       .sort((a, b) => (b.earlyTerm + b.lateTerm) - (a.earlyTerm + a.lateTerm));
   }, [rawGraphData]);
 
-  // 🔹 คำนวณสรุปข้อมูล KPI
+  // คำนวณสรุปข้อมูล KPI
   const studentBreakdown = useMemo(() => {
     let admitted = 0;
     let retained = 0;
@@ -384,7 +384,7 @@ function Dashboard() {
         }
       });
 
-      // 🎯 คำนวณผู้สำเร็จการศึกษา: ใช้ Set ดักจับ Unique Key (สาขา + ปี) ป้องกันข้อมูลซ้ำซ้อนในฐานข้อมูล
+   
       const trackedRowKeys = new Set();
       let directGradSum = 0;
 
@@ -393,7 +393,6 @@ function Dashboard() {
           const rawMajor = getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"]);
           const cleanName = String(rawMajor || "").trim();
 
-          // ข้ามแถวที่ไม่มีข้อมูล หรือแถวรวม
           if (!cleanName || cleanName.includes("รวม") || cleanName.includes("จำนวน") || cleanName === "-") {
             return;
           }
@@ -402,7 +401,7 @@ function Dashboard() {
           const rawYear = getCleanItemValue(item, ["ปีการศึกษา", "ปีสำเร็จการศึกษา", "ปีที่สำเร็จ", "ปีการศึกษาที่รับเข้า", "ปีที่สำรวจ"]);
           const gradYear = extractYear(rawYear);
 
-          // 🛑 ล็อกแถว: ถ้าสาขา X ในปี Y ถูกนับไปแล้ว จะไม่นำมารวมซ้ำ
+          
           const rowKey = `${gradMajorClean}_${gradYear}`;
           if (trackedRowKeys.has(rowKey)) {
             return;
