@@ -64,11 +64,14 @@ function UploadPage() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-  // 🔹 ดักจับชื่อไฟล์ Upskill / Reskill และไฟล์วิจัยทั้ง 3 ประเภทให้แยกคีย์ชัดเจน
+  // 🔹 ดักจับชื่อไฟล์และแยกคีย์ชัดเจน (เพิ่มความพึงพอใจของนิสิตไว้บนสุด)
   const guessTableFromFilename = (filename) => {
     if (!filename) return "";
     const name = filename.toLowerCase();
 
+    if (name.includes("ความพึงพอใจ") || name.includes("satisfaction")) {
+      return "ความพึงพอใจของนิสิตต่อหลักสูตร";
+    }
     if (name.includes("upskill") || name.includes("reskill")) {
       return "ข้อมูลวิจัย(Upskill)";
     }
@@ -342,10 +345,8 @@ function UploadPage() {
             let headerIndex = 0;
             for (let i = 0; i < Math.min(lines.length, 10); i++) {
               const parsed = parseCSVLine(lines[i]);
-              // หาแถวหัวตารางที่มีคอลัมน์ข้อมูลอย่างน้อย 2 ช่อง (ข้ามแถวชื่อหัวข้อใหญ่ที่อยู่บรรทัดแรก)
               if (parsed.filter((x) => x !== "").length >= 2) {
                 headerIndex = i;
-                // ถ้าบรรทัดถัดไปเป็นหัวตารางภาษาไทย (เช่น ปี พ.ศ., จำนวนโครงการ) ให้ใช้บรรทัดถัดไปเป็น Header
                 if (i + 1 < lines.length) {
                   const nextParsed = parseCSVLine(lines[i + 1]);
                   if (nextParsed.some((col) => col.includes("ปี พ.ศ.") || col.includes("จำนวนโครงการ") || col.includes("รายได้"))) {
@@ -422,7 +423,10 @@ function UploadPage() {
 
             dashboard[sName] = appendRowsWithoutDuplicate(dashboard[sName], newRows);
 
-            if (sLower.includes("upskill") || sLower.includes("reskill")) {
+            if (sName.includes("ความพึงพอใจ") || sLower.includes("satisfaction")) {
+              dashboard["ความพึงพอใจของนิสิตต่อหลักสูตร"] = appendRowsWithoutDuplicate(dashboard["ความพึงพอใจของนิสิตต่อหลักสูตร"], newRows);
+              dashboard["ความพึงพอใจของนิสิต"] = appendRowsWithoutDuplicate(dashboard["ความพึงพอใจของนิสิต"], newRows);
+            } else if (sLower.includes("upskill") || sLower.includes("reskill")) {
               dashboard["ข้อมูลวิจัย(Upskill)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(Upskill)"], newRows);
               dashboard["ข้อมูล Upskill-Reskill"] = appendRowsWithoutDuplicate(dashboard["ข้อมูล Upskill-Reskill"], newRows);
             } else if (sName.includes("ผลงานวิจัย")) {
@@ -462,7 +466,10 @@ function UploadPage() {
 
           dashboard[keyName] = appendRowsWithoutDuplicate(dashboard[keyName], cleanedRows);
 
-          if (keyLower.includes("upskill") || keyLower.includes("reskill")) {
+          if (keyName.includes("ความพึงพอใจ") || keyLower.includes("satisfaction")) {
+            dashboard["ความพึงพอใจของนิสิตต่อหลักสูตร"] = appendRowsWithoutDuplicate(dashboard["ความพึงพอใจของนิสิตต่อหลักสูตร"], cleanedRows);
+            dashboard["ความพึงพอใจของนิสิต"] = appendRowsWithoutDuplicate(dashboard["ความพึงพอใจของนิสิต"], cleanedRows);
+          } else if (keyLower.includes("upskill") || keyLower.includes("reskill")) {
             dashboard["ข้อมูลวิจัย(Upskill)"] = appendRowsWithoutDuplicate(dashboard["ข้อมูลวิจัย(Upskill)"], cleanedRows);
             dashboard["ข้อมูล Upskill-Reskill"] = appendRowsWithoutDuplicate(dashboard["ข้อมูล Upskill-Reskill"], cleanedRows);
           } else if (keyName.includes("ผลงานวิจัย")) {
@@ -655,7 +662,7 @@ function UploadPage() {
                       <AntInput 
                         value={targetTableName} 
                         onChange={(e) => setTargetTableName(e.target.value)} 
-                        placeholder="ระบุชื่อหมวดหมู่ เช่น ข้อมูลอาจารย์ หรือ ข้อมูลวิจัย(Upskill)"
+                        placeholder="ระบุชื่อหมวดหมู่ เช่น ความพึงพอใจของนิสิตต่อหลักสูตร"
                         disabled={!isAdmin}
                         style={{ borderRadius: 8 }}
                       />
