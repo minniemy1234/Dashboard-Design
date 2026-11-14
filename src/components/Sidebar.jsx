@@ -16,7 +16,9 @@ import {
   SafetyCertificateOutlined,
   ExperimentOutlined,
   DollarOutlined,
-  SmileOutlined // 1. นำเข้า SmileOutlined Icon
+  SmileOutlined,
+  AppstoreOutlined,
+  RocketOutlined // 🔹 เพิ่มไอคอนสำหรับเมนู Reskill / Upskill
 } from "@ant-design/icons";
 import { db } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -88,7 +90,6 @@ function Sidebar() {
       icon: <IdcardOutlined style={{ color: "#06b6d4" }} />, 
       label: "ผลประเมินคุณภาพบัณฑิต" 
     },
-    // 2. เพิ่มเมนูความพึงพอใจนิสิตต่อจากผลประเมินคุณภาพบัณฑิต
     { 
       key: "/student-satisfaction", 
       icon: <SmileOutlined style={{ color: "#14b8a6" }} />, 
@@ -97,7 +98,7 @@ function Sidebar() {
 
     { type: "divider", style: { borderColor: "rgba(255, 255, 255, 0.1)", margin: "8px 12px" } },
 
-    // --- 3. หมวดข้อมูลอาจารย์ & การเรียนการสอน (สีส้ม / ทอง) ---
+    // --- 3. หมวดข้อมูลอาจารย์ & การเรียนการสอน (สีส้ม / ทอง / ฟ้าเข้ม) ---
     { 
       key: "/faculty", 
       icon: <UserOutlined style={{ color: "#f59e0b" }} />, 
@@ -112,6 +113,11 @@ function Sidebar() {
       key: "/evaluation", 
       icon: <LikeOutlined style={{ color: "#eab308" }} />, 
       label: "ผลการประเมินหลักสูตร" 
+    },
+    { 
+      key: "/learning-support", 
+      icon: <AppstoreOutlined style={{ color: "#38bdf8" }} />, 
+      label: "สิ่งสนับสนุนการเรียนการสอน" 
     },
   ];
 
@@ -128,6 +134,12 @@ function Sidebar() {
       key: "/research", 
       icon: <ExperimentOutlined style={{ color: "#a855f7" }} />, 
       label: "ผลงานวิจัย" 
+    });
+    // 🔹 เพิ่มเมนู Reskill / Upskill เฉพาะ Admin
+    bottomMenuItems.push({ 
+      key: "/upskill", 
+      icon: <RocketOutlined style={{ color: "#f472b6" }} />, 
+      label: "Reskill / Upskill" 
     });
     bottomMenuItems.push({ 
       key: "/finance", 
