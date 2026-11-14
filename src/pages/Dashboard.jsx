@@ -169,9 +169,10 @@ function Dashboard() {
     return year;
   };
 
+  // 🔹 ตรวจสอบว่าเป็นสาขาระดับ ป.โท หรือไม่ (เช็กเฉพาะคำนำหน้า วท.ม. หรือ X)
   const isMasterOrXMajor = (majorName) => {
     if (!majorName) return false;
-    const clean = String(majorName).trim();
+    const clean = String(majorName).replace(/\s+/g, '').trim();
     return clean.startsWith("วท.ม.") || clean.startsWith("X") || clean.startsWith("x");
   };
 
@@ -225,7 +226,9 @@ function Dashboard() {
 
   const majorsOptions = useMemo(() => {
     if (retain.length === 0) return [];
-    const rawMajors = retain.map(item => cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"])));
+    const rawMajors = retain
+      .map(item => cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"])))
+      .filter(m => m && !isMasterOrXMajor(m));
     const combined = [...new Set([...rawMajors, ...EXTRA_MAJORS])].filter(Boolean);
 
     const bachelorMajors = combined.filter(m => !isMasterOrXMajor(m)).sort();
@@ -234,23 +237,43 @@ function Dashboard() {
     return [...bachelorMajors, ...masterMajors];
   }, [retain]);
 
+  // 🔹 นับจำนวนหลักสูตรทั้งหมดจาก "ปีที่รับเข้า" ล่าสุด (ปี 2568 ภาคต้น = 6 สาขา + ป.โท 2 สาขา = 8 สาขา)
   const latestYearProgramsCount = useMemo(() => {
-    if (retain.length === 0 || yearsOptions.length === 0) return majorsOptions.length;
+    if (retain.length === 0) return majorsOptions.length;
     
-    const sortedYears = [...yearsOptions].sort((a, b) => Number(b) - Number(a));
-    const latestYear = sortedYears[0];
+    const latestEntryYear = entryYears.length > 0 ? entryYears[0] : (yearsOptions.length > 0 ? [...yearsOptions].sort((a, b) => Number(b) - Number(a))[0] : "");
+    if (!latestEntryYear) return majorsOptions.length;
 
     const latestYearMajors = retain
       .filter(item => {
-        const itemYear = extractYear(getCleanItemValue(item, ["ปีที่สำรวจ", "ปีการศึกษาที่รับเข้า"]));
-        return itemYear === latestYear;
-      })
-      .map(item => cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"])))
-      .filter(Boolean);
+        const rawMajor = String(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"]) || "").trim();
+        if (!rawMajor || rawMajor === "-" || rawMajor.includes("รวม") || rawMajor.includes("จำนวน")) return false;
 
-    const uniqueLatestMajors = new Set(latestYearMajors);
+        const itemEntryYear = extractYear(getCleanItemValue(item, ["ปีการศึกษาที่รับเข้า", "ปีการศึกษา", "ปีที่สำรวจ"]));
+        const itemTerm = String(getCleanItemValue(item, ["ภาคเรียน", "ภาคการศึกษา"]) || "").trim();
+        
+        const isLatestYear = itemEntryYear === latestEntryYear;
+        const isEarlyTerm = itemTerm === "ต้น" || itemTerm === "ภาคต้น" || itemTerm === "1";
+        
+        return isLatestYear && isEarlyTerm;
+      })
+      .map(item => {
+        let name = cleanMajorName(getCleanItemValue(item, ["ชื่อสาขา", "สาขาวิชา", "สาขา"]));
+        name = name
+          .replace(/^หลักสูตร.*?สาขาวิชา/g, "")
+          .replace(/^วท\.บ\./g, "")
+          .replace(/\(.*?\)/g, "")
+          .replace(/ภาคปกติ|ภาคพิเศษ/g, "")
+          .trim();
+        return cleanString(name);
+      })
+      .filter(name => Boolean(name) && !isMasterOrXMajor(name));
+
+    const cleanedExtraMajors = EXTRA_MAJORS.map(m => cleanString(cleanMajorName(m))).filter(Boolean);
+    const uniqueLatestMajors = new Set([...latestYearMajors, ...cleanedExtraMajors]);
+
     return uniqueLatestMajors.size > 0 ? uniqueLatestMajors.size : majorsOptions.length;
-  }, [retain, yearsOptions, majorsOptions]);
+  }, [retain, entryYears, yearsOptions, majorsOptions]);
 
   const handleSelectAllYears = (shouldSelectAll) => {
     setSelectedYears(shouldSelectAll ? yearsOptions : []);
@@ -490,61 +513,62 @@ function Dashboard() {
 
         <Header
           style={{
-            background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
-            padding: "20px 32px",
+            background: "linear-gradient(135deg, #0f172a 0%, #0c4a6e 50%, #0369a1 100%)",
+            padding: "36px 40px",
             height: "auto",
             lineHeight: "normal",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderBottom: "2px solid #bae6fd",
-            boxShadow: "0 4px 20px -2px rgba(2, 132, 199, 0.08)"
+            borderBottom: "4px solid #38bdf8",
+            boxShadow: "0 12px 30px -5px rgba(15, 23, 42, 0.3)"
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
             {/* กล่องไอคอนเด่นด้านซ้าย */}
             <div
               style={{
-                width: "52px",
-                height: "52px",
-                borderRadius: "14px",
-                background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                width: "68px",
+                height: "68px",
+                borderRadius: "18px",
+                background: "linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 8px 16px -4px rgba(2, 132, 199, 0.4)",
+                boxShadow: "0 0 24px rgba(56, 189, 248, 0.45)",
+                border: "1.5px solid rgba(255, 255, 255, 0.35)",
                 flexShrink: 0
               }}
             >
-              <DashboardOutlined style={{ fontSize: "26px", color: "#ffffff" }} />
+              <DashboardOutlined style={{ fontSize: "34px", color: "#ffffff" }} />
             </div>
 
             {/* ข้อความหัวข้อและคำอธิบาย */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
                 <h1
                   style={{
                     margin: 0,
-                    fontSize: "24px",
+                    fontSize: "30px",
                     fontWeight: "900",
-                    background: "linear-gradient(90deg, #0f172a 0%, #0369a1 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    letterSpacing: "-0.02em",
-                    lineHeight: "1.2"
+                    color: "#ffffff",
+                    textShadow: "0 2px 6px rgba(0, 0, 0, 0.35)",
+                    letterSpacing: "-0.01em",
+                    lineHeight: "1.3"
                   }}
                 >
                   ระบบสารสนเทศด้านการศึกษาเพื่อการบริหารและพัฒนาคณะวิทยาศาสตร์ ศรีราชา
                 </h1>
                 <Tag
-                  color="#0284c7"
                   style={{
-                    borderRadius: "20px",
-                    padding: "2px 12px",
+                    backgroundColor: "rgba(56, 189, 248, 0.22)",
+                    color: "#7dd3fc",
+                    borderRadius: "24px",
+                    padding: "5px 16px",
                     fontWeight: "700",
-                    fontSize: "12px",
-                    border: "none",
-                    boxShadow: "0 2px 6px rgba(2, 132, 199, 0.25)"
+                    fontSize: "14px",
+                    border: "1px solid rgba(125, 211, 252, 0.45)",
+                    backdropFilter: "blur(4px)"
                   }}
                 >
                   คณะวิทยาศาสตร์ ศรีราชา
@@ -552,15 +576,35 @@ function Dashboard() {
               </div>
               <p
                 style={{
-                  color: "#475569",
-                  fontSize: "13px",
-                  fontWeight: "500",
+                  color: "#e2e8f0",
+                  fontSize: "15.5px",
+                  fontWeight: "400",
                   margin: 0,
-                  lineHeight: "1.2",
-                  letterSpacing: "0.02em"
+                  lineHeight: "1.4",
+                  letterSpacing: "0.02em",
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "6px"
                 }}
               >
-                Education Management Information System (EMIS) for Faculty of Science, Sriracha
+                <span>Education Management Information System</span>
+                <span
+                  style={{
+                    background: "linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)",
+                    color: "#ffffff",
+                    fontWeight: "800",
+                    fontSize: "14px",
+                    padding: "2px 10px",
+                    borderRadius: "6px",
+                    letterSpacing: "0.06em",
+                    boxShadow: "0 2px 8px rgba(56, 189, 248, 0.4)",
+                    border: "1px solid rgba(255, 255, 255, 0.3)"
+                  }}
+                >
+                  EMIS
+                </span>
+                <span>for Faculty of Science, Sriracha</span>
               </p>
             </div>
           </div>
@@ -569,14 +613,16 @@ function Dashboard() {
             <AntTooltip title="รีเฟรชข้อมูล">
               <Button
                 shape="circle"
-                size="large"
-                icon={<ReloadOutlined />}
+                icon={<ReloadOutlined style={{ fontSize: "20px" }} />}
                 onClick={loadDashboardData}
                 style={{
-                  borderColor: "#bae6fd",
-                  color: "#0284c7",
-                  background: "#ffffff",
-                  boxShadow: "0 2px 6px rgba(2, 132, 199, 0.1)"
+                  width: "48px",
+                  height: "48px",
+                  borderColor: "rgba(255, 255, 255, 0.3)",
+                  color: "#ffffff",
+                  background: "rgba(255, 255, 255, 0.12)",
+                  backdropFilter: "blur(4px)",
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)"
                 }}
               />
             </AntTooltip>
@@ -585,7 +631,6 @@ function Dashboard() {
 
         <Content style={{ padding: "28px 32px", maxWidth: "1600px", margin: "0 auto", width: "100%" }}>
 
-          
           <div style={{ 
             background: "#ffffff", 
             padding: "24px", 
@@ -702,7 +747,7 @@ function Dashboard() {
             </Card>
           ) : (
             <>
-              {/*  PROMINENT TOP KPI CARDS ZONE */}
+              {/* PROMINENT TOP KPI CARDS ZONE */}
               <div style={{ marginBottom: "32px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
                   <h2 style={{ fontSize: "18px", fontWeight: "700", margin: 0, color: "#0f172a", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -825,7 +870,7 @@ function Dashboard() {
                 </Row>
               </div>
 
-              {/*  GRAPH SECTION PANEL */}
+              {/* GRAPH SECTION PANEL */}
               <div style={{ marginTop: "32px" }}>
                 <Card 
                   style={{ borderRadius: "16px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
@@ -862,7 +907,7 @@ function Dashboard() {
                     </div>
                   }
                 >
-                  {/*  กราฟระดับปริญญาตรี */}
+                  {/* กราฟระดับปริญญาตรี */}
                   <div style={{ marginBottom: "36px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px" }}>
                       <span style={{ display: "inline-block", width: "4px", height: "16px", backgroundColor: "#0ea5e9", borderRadius: "2px" }}></span>
