@@ -617,7 +617,8 @@ function Dashboard() {
 
         <Content style={{ padding: "28px 32px", maxWidth: "1600px", margin: "0 auto", width: "100%" }}>
 
-          <div style={{ 
+          {/* คอมเมนต์ส่วน Filter เก็บไว้ก่อน */}
+          {/* <div style={{ 
             background: "#ffffff", 
             padding: "24px", 
             borderRadius: "16px", 
@@ -627,7 +628,6 @@ function Dashboard() {
           }}>
             <Row gutter={[20, 20]} align="bottom">
 
-              {/* Filter ปีการศึกษา */}
               <Col xs={24} lg={10}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontWeight: "700", color: "#334155", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -658,7 +658,6 @@ function Dashboard() {
                 </Select>
               </Col>
 
-              {/* Filter สาขาวิชา */}
               <Col xs={24} lg={10}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <span style={{ fontWeight: "700", color: "#334155", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -725,7 +724,7 @@ function Dashboard() {
               </Col>
 
             </Row>
-          </div>
+          </div> */}
 
           {isDataEmpty ? (
             <Card style={{ borderRadius: "16px", textAlign: "center", padding: "60px 0", border: "1px solid #e2e8f0" }}>
