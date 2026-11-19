@@ -7,7 +7,6 @@ import {
   UploadOutlined,
   TeamOutlined,
   UserOutlined,
-  BarChartOutlined,
   UsergroupDeleteOutlined,
   LikeOutlined,
   IdcardOutlined,
@@ -18,34 +17,56 @@ import {
   DollarOutlined,
   SmileOutlined,
   AppstoreOutlined,
-  RocketOutlined // 🔹 เพิ่มไอคอนสำหรับเมนู Reskill / Upskill
+  RocketOutlined
 } from "@ant-design/icons";
 import { db } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
 const { Sider } = Layout;
+const DEFAULT_SUPER_ADMIN = "naramon.si@ku.th";
 
 function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const userEmail = (localStorage.getItem("email") || "").toLowerCase();
+  const userEmail = (localStorage.getItem("email") || "").toLowerCase().trim();
   const userName = localStorage.getItem("user") || "ผู้ใช้งาน";
   const userPicture = localStorage.getItem("picture");
 
-  const [adminList, setAdminList] = useState(["naramon.si@ku.th"]);
+  const [superAdminEmail, setSuperAdminEmail] = useState(DEFAULT_SUPER_ADMIN);
+  const [adminList, setAdminList] = useState([DEFAULT_SUPER_ADMIN]);
+  const [rolesMap, setRolesMap] = useState({});
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "system_config", "admins"), (docSnap) => {
-      if (docSnap.exists() && Array.isArray(docSnap.data().list)) {
-        setAdminList(docSnap.data().list.map(e => e.toLowerCase()));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.superAdmin) {
+          setSuperAdminEmail(String(data.superAdmin).toLowerCase().trim());
+        }
+        if (Array.isArray(data.list)) {
+          setAdminList(data.list.map((e) => String(e).toLowerCase().trim()));
+        }
+        if (data.roles && typeof data.roles === "object") {
+          setRolesMap(data.roles);
+        }
       }
     });
     return () => unsub();
   }, []);
 
-  const isAdmin = adminList.includes(userEmail);
-  const isSuperAdmin = userEmail === "naramon.si@ku.th";
+  // ตรวจสอบบทบาทของผู้ใช้งานปัจจุบัน (รองรับ Super Admin หลายคน)
+  const userRoleFromDB = rolesMap[userEmail];
+  const isSuperAdmin =
+    userRoleFromDB === "Super Admin" ||
+    userEmail === superAdminEmail ||
+    userEmail === DEFAULT_SUPER_ADMIN;
+
+  // เป็น Admin เมื่อเป็น Super Admin หรือมีบทบาทเป็น Admin (รองรับข้อมูลเก่าที่อยู่ใน list แต่ยังไม่มี rolesMap)
+  const isAdmin =
+    isSuperAdmin ||
+    userRoleFromDB === "Admin (ผู้ดูแลระบบ)" ||
+    (adminList.includes(userEmail) && !userRoleFromDB);
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn");
@@ -78,7 +99,7 @@ function Sidebar() {
     { 
       key: "/student-status", 
       icon: <UsergroupDeleteOutlined style={{ color: "#0284c7" }} />, 
-      label: "ข้อมูลสถานะนิสิต" 
+      label: "ข้อมูลนิสิตที่มีสถานะพ้นสภาพ" 
     },
     { 
       key: "/employment", 
@@ -121,7 +142,7 @@ function Sidebar() {
     },
   ];
 
-  // --- 4. หมวดสำหรับ Admin (สีม่วง / ชมพู / แดง) ---
+  // --- 4. หมวดสำหรับ Admin & Super Admin (เห็นเฉพาะ 2 บทบาทนี้) ---
   const bottomMenuItems = [];
 
   if (isAdmin) {
@@ -135,7 +156,6 @@ function Sidebar() {
       icon: <ExperimentOutlined style={{ color: "#a855f7" }} />, 
       label: "ผลงานวิจัย" 
     });
-    // 🔹 เพิ่มเมนู Reskill / Upskill เฉพาะ Admin
     bottomMenuItems.push({ 
       key: "/upskill", 
       icon: <RocketOutlined style={{ color: "#f472b6" }} />, 
@@ -152,9 +172,19 @@ function Sidebar() {
     bottomMenuItems.push({
       key: "/admin-management",
       icon: <SafetyCertificateOutlined style={{ color: "#ef4444" }} />,
-      label: "จัดการผู้ดูแลระบบ",
+      label: "กำหนดสิทธิ์ผู้ใช้งาน",
     });
   }
+
+  // ข้อความแสดงสถานะใต้ชื่อโปรไฟล์
+  const getRoleLabel = () => {
+    if (isSuperAdmin) return "👑 Super Admin";
+    if (isAdmin) return "🔑 Admin";
+    if (userRoleFromDB && userRoleFromDB !== "User (ผู้ใช้งานทั่วไป)") {
+      return `🎓 ${userRoleFromDB}`;
+    }
+    return "👤 User";
+  };
 
   return (
     <Sider 
@@ -196,12 +226,12 @@ function Sidebar() {
                 {userName}
               </div>
               <div style={{ color: "#94a3b8", fontSize: 11 }}>
-                {isAdmin ? "🔑 Admin" : "👤 User"}
+                {getRoleLabel()}
               </div>
             </div>
           </div>
 
-          {/* TOP MENU */}
+          {/* TOP MENU (เห็นทุกคน) */}
           <Menu 
             mode="inline" 
             theme="dark" 
@@ -214,9 +244,9 @@ function Sidebar() {
 
         <div style={{ paddingBottom: 16 }}>
           
+          {/* BOTTOM MENU (เห็นเฉพาะ Super Admin และ Admin) */}
           {bottomMenuItems.length > 0 && (
             <>
-              {/* แบ่งโซนแอดมิน */}
               <div 
                 style={{ 
                   height: "1px", 
@@ -225,7 +255,6 @@ function Sidebar() {
                 }} 
               />
 
-              {/* BOTTOM MENU */}
               <Menu 
                 mode="inline" 
                 theme="dark" 
