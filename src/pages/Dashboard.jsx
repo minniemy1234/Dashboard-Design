@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Layout, Button, Empty, Card, Row, Col, Select, Tag, Space, Tooltip as AntTooltip } from "antd"; 
 import Sidebar from "../components/Sidebar";
+import kuLogo from "../assets/ku-logo.png";
+import whaleMascot from "../assets/whale-mascot.png";
 import {
   BarChart,
   Bar,
@@ -513,42 +515,51 @@ function Dashboard() {
 
         <Header
           style={{
-            background: "linear-gradient(135deg, #0f172a 0%, #0c4a6e 50%, #0369a1 100%)",
-            padding: "36px 40px",
+            background: "linear-gradient(135deg, #0f172a 0%, #0c4a6e 55%, #0369a1 100%)",
+            padding: 0,
             height: "auto",
+            minHeight: "172px",
             lineHeight: "normal",
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "center",
+            alignItems: "stretch",
+            flexWrap: "wrap",
             borderBottom: "4px solid #38bdf8",
-            boxShadow: "0 12px 30px -5px rgba(15, 23, 42, 0.3)"
+            boxShadow: "0 12px 30px -5px rgba(15, 23, 42, 0.3)",
+            position: "relative",
+            overflow: "hidden"
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-            {/* กล่องไอคอนเด่นด้านซ้าย */}
-            <div
+          {/* ฝั่งซ้าย: มาสคอตน้องวาฬ + ข้อความหัวข้อใหญ่ */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "20px",
+              padding: "28px 24px 28px 40px",
+              position: "relative",
+              zIndex: 2,
+              flex: "1 1 540px"
+            }}
+          >
+            <img
+              src={whaleMascot}
+              alt="มาสคอตคณะวิทยาศาสตร์ ศรีราชา"
               style={{
-                width: "68px",
-                height: "68px",
-                borderRadius: "18px",
-                background: "linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 0 24px rgba(56, 189, 248, 0.45)",
-                border: "1.5px solid rgba(255, 255, 255, 0.35)",
-                flexShrink: 0
+                height: "118px",
+                width: "auto",
+                objectFit: "contain",
+                display: "block",
+                flexShrink: 0,
+                filter: "drop-shadow(0 0 8px rgba(255, 255, 255, 0.75)) drop-shadow(0 4px 12px rgba(15, 23, 42, 0.4))"
               }}
-            >
-              <DashboardOutlined style={{ fontSize: "34px", color: "#ffffff" }} />
-            </div>
+            />
 
-            {/* ข้อความหัวข้อและคำอธิบาย */}
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <h1
                 style={{
                   margin: 0,
-                  fontSize: "30px",
+                  fontSize: "28px",
                   fontWeight: "900",
                   color: "#ffffff",
                   textShadow: "0 2px 6px rgba(0, 0, 0, 0.35)",
@@ -563,7 +574,7 @@ function Dashboard() {
               <p
                 style={{
                   color: "#e2e8f0",
-                  fontSize: "15.5px",
+                  fontSize: "15px",
                   fontWeight: "400",
                   margin: 0,
                   lineHeight: "1.4",
@@ -580,7 +591,7 @@ function Dashboard() {
                     background: "linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)",
                     color: "#ffffff",
                     fontWeight: "800",
-                    fontSize: "14px",
+                    fontSize: "13.5px",
                     padding: "2px 10px",
                     borderRadius: "6px",
                     letterSpacing: "0.06em",
@@ -595,24 +606,78 @@ function Dashboard() {
             </div>
           </div>
 
-          <Space size="middle">
-            <AntTooltip title="รีเฟรชข้อมูล">
-              <Button
-                shape="circle"
-                icon={<ReloadOutlined style={{ fontSize: "20px" }} />}
-                onClick={loadDashboardData}
+          {/* ฝั่งขวา: โซนตัดเฉียงเต็มกรอบบน-ล่าง-ขวา พร้อมแถบสีเขียว-ทองคาดเฉียง และโลโก้ KU เต็มพื้นที่ */}
+          <div
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              flex: "0 1 auto",
+              minHeight: "172px"
+            }}
+          >
+            {/* 1. แถบสีเขียว-ทอง ประจำ มก. คาดเฉียงทับแนวรอยต่อ (ยื่นออกมาทางซ้าย 14px) */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: "-14px",
+                right: 0,
+                background: "linear-gradient(180deg, #006664 0%, #00857c 50%, #b2bb1e 100%)",
+                clipPath: "polygon(78px 0, 100% 0, 100% 100%, 0 100%)",
+                zIndex: 1
+              }}
+            />
+
+            {/* 2. พื้นหลังสีขาวตัดเฉียงเต็มความสูง Header (ซ้อนทับบนแถบเขียว-ทอง ให้เหลือขอบสีเฉียงด้านซ้าย) */}
+            <div
+              style={{
+                position: "relative",
+                height: "100%",
+                width: "100%",
+                background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                clipPath: "polygon(78px 0, 100% 0, 100% 100%, 0 100%)",
+                // paddingLeft: 105px เพื่อให้โลโก้หลบแนวเฉียงด้านซ้าย ไม่โดนตัดหรือบังตัวอักษรแม้แต่นิดเดียว
+                padding: "20px 32px 20px 105px",
+                display: "flex",
+                alignItems: "center",
+                gap: "24px",
+                zIndex: 2
+              }}
+            >
+              {/* รูปโลโก้ KU คณะวิทยาศาสตร์ ศรีราชา เต็มกรอบ */}
+              <img
+                src={kuLogo}
+                alt="มหาวิทยาลัยเกษตรศาสตร์ คณะวิทยาศาสตร์ ศรีราชา"
                 style={{
-                  width: "48px",
-                  height: "48px",
-                  borderColor: "rgba(255, 255, 255, 0.3)",
-                  color: "#ffffff",
-                  background: "rgba(255, 255, 255, 0.12)",
-                  backdropFilter: "blur(4px)",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)"
+                  height: "126px",
+                  width: "auto",
+                  objectFit: "contain",
+                  display: "block"
                 }}
               />
-            </AntTooltip>
-          </Space>
+
+              {/* ปุ่มรีเฟรชข้อมูล (ปรับสีให้กลมกลืนกับโซนสีขาว-เขียว มก.) */}
+              <AntTooltip title="รีเฟรชข้อมูล">
+                <Button
+                  shape="circle"
+                  icon={<ReloadOutlined style={{ fontSize: "19px" }} />}
+                  onClick={loadDashboardData}
+                  style={{
+                    width: "44px",
+                    height: "44px",
+                    borderColor: "#cbd5e1",
+                    color: "#006664",
+                    background: "#f1f5f9",
+                    boxShadow: "0 2px 8px rgba(15, 23, 42, 0.08)",
+                    flexShrink: 0
+                  }}
+                />
+              </AntTooltip>
+            </div>
+          </div>
         </Header>
 
         <Content style={{ padding: "28px 32px", maxWidth: "1600px", margin: "0 auto", width: "100%" }}>
