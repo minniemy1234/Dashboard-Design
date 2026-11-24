@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Layout, Menu, Button, message, Avatar } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
+import whaleMascot from "../assets/whale-mascot.png"; // 🔹 นำเข้าไฟล์มาสคอตน้องวาฬ (เช็กชื่อไฟล์ใน src/assets/ ให้ตรงกันนะครับ)
 import {
   DashboardOutlined,
   GlobalOutlined,
@@ -213,9 +214,30 @@ function Sidebar() {
         
         {/* โลโก้ + โปรไฟล์ + เมนูหน้าหลัก */}
         <div>
-          {/* HEADER / LOGO */}
-          <div style={{ color: "white", padding: "20px 16px", fontSize: 20, fontWeight: "bold", textAlign: "center", borderBottom: "1px solid rgba(255, 255, 255, 0.1)", marginBottom: 10 }}>
-            Dashboard 
+          {/* HEADER / WHALE MASCOT */}
+          <div
+            onClick={() => navigate("/")}
+            style={{
+              padding: "18px 16px 14px 16px",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+              marginBottom: 12,
+              cursor: "pointer"
+            }}
+          >
+            <img
+              src={whaleMascot}
+              alt="Sci KUSRC Mascot"
+              style={{
+                height: "84px",
+                width: "auto",
+                objectFit: "contain",
+                display: "block",
+                filter: "drop-shadow(0 0 6px rgba(255, 255, 255, 0.7)) drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35))"
+              }}
+            />
           </div>
 
           {/* USER PROFILE */}
